@@ -78,7 +78,7 @@ pub fn dijkstra_for_multiple_ends<N, C, FN, IN>(start: &N, ends: &MultipleEnds<N
 
     dijkstra(&NodeCost::new(Node::Node(start.clone()), C::zero()), successors, |n| n.node() == &Node::Dest)
         .and_then(|(path, _)| 
-            Some(Path::new(path.into_iter()
+            Some(Path::new(path[1..].into_iter()
                 .filter_map(|node| {
                     match node.node() {
                         Node::Node(n) => Some((n.clone(), node.cost())),
@@ -113,10 +113,9 @@ mod tests {
         let path = dijkstra_for_multiple_ends(&(2, 3), &ends, successors).unwrap();
 
         assert_eq!(path.total_cost(), 5);
-        assert_eq!(path.len(), 6);
-        assert_eq!(path[0], ((2, 3), 0));
+        assert_eq!(path.len(), 5);
         assert_eq!(path[path.len() - 1], ((5, 1), 5));
-        assert_eq!(path.iter().map(|(_, c)| *c).collect::<Vec<_>>(), vec![0, 1, 2, 3, 4, 5]);
+        assert_eq!(path.iter().map(|(_, c)| *c).collect::<Vec<_>>(), vec![1, 2, 3, 4, 5]);
     }
 
     #[test]
@@ -124,11 +123,12 @@ mod tests {
         let ends = MultipleEnds::new(&vec![HashSet::from([(6, -1)]), HashSet::from([(5, 1)])]);
         let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1));
         
-        let path = dijkstra_for_multiple_ends(&(2, 3), &ends, successors).unwrap();
+        let path = dijkstra_for_multiple_ends(&(2i32, 3i32), &ends, successors).unwrap();
 
         assert_eq!(path.total_cost(), 8);
-        assert_eq!(path.len(), 9);
-        assert_eq!(path[0], ((2, 3), 0));
+        assert_eq!(path.len(), 8);
+        assert!((path[0].0.0 - 2).abs() <= 1);
+        assert!((path[0].0.1 - 3).abs() <= 1);
         assert_eq!(path[path.len() - 1], ((6, -1), 8));
     }
 
@@ -140,8 +140,7 @@ mod tests {
         let path = dijkstra_for_multiple_ends(&(2, 3), &ends, successors).unwrap();
 
         assert_eq!(path.total_cost(), 7);
-        assert_eq!(path.len(), 8);
-        assert_eq!(path[0], ((2, 3), 0));
+        assert_eq!(path.len(), 7);
         assert_eq!(path[path.len() - 1], ((-1, 7), 7));
     }
 
@@ -165,8 +164,7 @@ mod tests {
         let path = dijkstra_for_multiple_ends(&(2, 3), &ends, successors).unwrap();
 
         assert_eq!(path.total_cost(), 8);
-        assert_eq!(path.len(), 9);
-        assert_eq!(path[0], ((2, 3), 0));
+        assert_eq!(path.len(), 8);
         assert_eq!(path[path.len() - 1], ((6, -1), 8));
     }
 
@@ -189,13 +187,13 @@ mod tests {
         };
 
         let cases = [
-            ((1, 2), (4, 6), 2, Some(vec![(1, 2), (2, 2), (3, 2)])),
-            ((1, 2), (4, 6), 3, Some(vec![(1, 2), (2, 2), (3, 2), (4, 2)])),
-            ((1, 2), (4, 6), 4, Some(vec![(1, 2), (2, 2), (3, 2), (4, 2)])),
-            ((4, 2), (4, 6), 3, Some(vec![(4, 2)])),
-            ((4, 1), (5, 7), 3, Some(vec![(4, 1), (4, 2)])),
-            ((4, 1), (5, 7), 0, Some(vec![(4, 1)])),
-            ((8, 7), (1, 5), 2, Some(vec![(8, 7), (7, 7), (6, 7)])),
+            ((1, 2), (4, 6), 2, Some(vec![(2, 2), (3, 2)])),
+            ((1, 2), (4, 6), 3, Some(vec![(2, 2), (3, 2), (4, 2)])),
+            ((1, 2), (4, 6), 4, Some(vec![(2, 2), (3, 2), (4, 2)])),
+            ((4, 2), (4, 6), 3, Some(vec![])),
+            ((4, 1), (5, 7), 3, Some(vec![(4, 2)])),
+            ((4, 1), (5, 7), 0, Some(vec![])),
+            ((8, 7), (1, 5), 2, Some(vec![(7, 7), (6, 7)])),
             ((8, 7), (11, 6), 2, None),
         ];
 
@@ -227,7 +225,7 @@ mod tests {
                 (Some(e), Some(a)) => {
                     assert_eq!(e.len(), a.len());
                     for i in 0..e.len() {
-                        assert_eq!((e[i], i), a[i]);
+                        assert_eq!((e[i], i + 1), a[i]);
                     }
                 },
             }
