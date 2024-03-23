@@ -2,15 +2,17 @@ use std::hash::Hash;
 
 use num_traits::Zero;
 
-trait Agent {
-    type N: Eq + Hash + Clone;
-    type C: Zero + Ord + Copy + Hash;
-    type S: Eq + Clone;
+pub trait Agent<N, C, S>
+where
+    N: Eq + Hash + Clone,
+    C: Zero + Ord + Copy + Hash,
+    S: Eq + Clone,
+{
 
-    type Iter: IntoIterator<Item = (Self::N, Self::C, Self::SIter)>;
-    type SIter: Iterator<Item = (Self::S, u64)>;
+    type Iter: IntoIterator<Item = (N, C, Self::SIter)>;
+    type SIter: Iterator<Item = (S, u64)>;
 
-    fn successors(&self, n: &Self::N) -> Self::Iter;
+    fn successors(&self, n: &N) -> Self::Iter;
 }
 
 #[cfg(test)]
@@ -103,14 +105,12 @@ mod tests {
         }   
     }
 
-    impl<const N: usize> Agent for TestAgent<N> {
-        type N = usize;
-        type C = u32;
-        type S = usize;
+    impl<const N: usize> Agent<usize, u32, usize> for TestAgent<N> {
+
         type Iter = Iter<N>;
         type SIter = SIter;
 
-        fn successors(&self, n: &Self::N) -> Self::Iter {
+        fn successors(&self, n: &usize) -> Self::Iter {
             Self::Iter::new(self.steps, *n)
         }
     }
