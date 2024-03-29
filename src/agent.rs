@@ -1,137 +1,146 @@
-use std::hash::Hash;
+// use std::hash::Hash;
 
-use num_traits::Zero;
+// use num_traits::Zero;
 
-pub trait Agent<N, C, S>
-where
-    N: Eq + Hash + Clone,
-    C: Zero + Ord + Copy + Hash,
-    S: Eq + Clone,
-{
+// pub trait Agent
+// {
+//     type N: Eq + Hash + Clone;
+//     type C: Zero + Ord + Copy + Hash;
+//     type S: Eq + Clone;
+//     type Iter: IntoIterator<Item = (Self::N, Self::C, Self::SIter)>;
+//     type SIter: Iterator<Item = (Self::S, u64)>;
+//     type FIter: Iterator<Item = Self::S>;
 
-    type Iter: IntoIterator<Item = (N, C, Self::SIter)>;
-    type SIter: Iterator<Item = (S, u64)>;
+//     fn successors(&self, n: &Self::N) -> Self::Iter;
+//     fn seats(&self, n: &Self::N) -> Self::FIter;
+// }
 
-    fn successors(&self, n: &N) -> Self::Iter;
-}
+// #[cfg(test)]
+// mod tests {
+//     use std::{collections::HashSet, vec::IntoIter};
 
-#[cfg(test)]
-mod tests {
-    use std::collections::HashSet;
+//     use crate::pathfind::{common::MultipleEnds, dijkstra::{dijkstra_for_multiple_ends, dijkstra_for_next_reservation}};
 
-    use crate::pathfind::{common::MultipleEnds, dijkstra::{dijkstra_for_multiple_ends, dijkstra_for_next_reservation}};
+//     use super::Agent;
 
-    use super::Agent;
-
-    struct TestAgent<const N: usize> {
-        steps: [usize; N]
-    }
+//     struct TestAgent<const N: usize> {
+//         steps: [usize; N]
+//     }
     
-    impl<const N: usize> TestAgent<N> {
-        fn new(steps: [usize; N]) -> Self { Self { steps } }
-    }
+//     impl<const N: usize> TestAgent<N> {
+//         fn new(steps: [usize; N]) -> Self { Self { steps } }
+//     }
     
 
-    struct Iter<const N: usize> {
-        steps: [usize; N],
-        n: usize,
-        i: usize,
-    }
+//     struct Iter<const N: usize> {
+//         steps: [usize; N],
+//         n: usize,
+//         i: usize,
+//     }
     
-    impl<const N: usize> Iter<N> {
-        fn new(steps: [usize; N], n: usize) -> Self {
-            Self { steps, n, i: 0 }
-        }
-    }
+//     impl<const N: usize> Iter<N> {
+//         fn new(steps: [usize; N], n: usize) -> Self {
+//             Self { steps, n, i: 0 }
+//         }
+//     }
 
-    impl<const N: usize> Iterator for Iter<N> {
-        type Item = (usize, u32, SIter);
+//     impl<const N: usize> Iterator for Iter<N> {
+//         type Item = (usize, u32, SIter);
     
-        fn next(&mut self) -> Option<Self::Item> {
-            let j = self.i;
-            if j < self.steps.len() {
-                let d = self.steps[j];
-                self.i += 1;
-                return Some((self.n + d, d as u32, SIter::new_up(self.n, d)))
-            }
-            for j in self.i - self.steps.len()..self.steps.len() {
-                let d = self.steps[j];
-                self.i += 1;
-                if self.n > d {
-                    return Some((self.n - d, d as u32, SIter::new_down(self.n, d)))
-                }
-            }
-            None
-        }
-    }
+//         fn next(&mut self) -> Option<Self::Item> {
+//             let j = self.i;
+//             if j < self.steps.len() {
+//                 let d = self.steps[j];
+//                 self.i += 1;
+//                 return Some((self.n + d, d as u32, SIter::new_up(self.n, d)))
+//             }
+//             for j in self.i - self.steps.len()..self.steps.len() {
+//                 let d = self.steps[j];
+//                 self.i += 1;
+//                 if self.n > d {
+//                     return Some((self.n - d, d as u32, SIter::new_down(self.n, d)))
+//                 }
+//             }
+//             None
+//         }
+//     }
 
-    struct SIter {
-        n: usize,
-        k: usize,
-        step: bool,
-        i: usize
-    }
+//     struct SIter {
+//         n: usize,
+//         k: usize,
+//         step: bool,
+//         i: usize
+//     }
     
-    impl SIter {
-        fn new_up(n: usize, k: usize) -> Self {
-            Self { n, k, step: true, i: 0 }
-        }
-        fn new_down(n: usize, k: usize) -> Self {
-            Self { n, k, step: false, i: 0 }
-        }
-        fn value(&self, j: usize) -> usize {
-            if self.step {
-                self.n + j
-            } else {
-                self.n - j
-            }
-        }
-    }
+//     impl SIter {
+//         fn new_up(n: usize, k: usize) -> Self {
+//             Self { n, k, step: true, i: 0 }
+//         }
+//         fn new_down(n: usize, k: usize) -> Self {
+//             Self { n, k, step: false, i: 0 }
+//         }
+//         fn value(&self, j: usize) -> usize {
+//             if self.step {
+//                 self.n + j
+//             } else {
+//                 self.n - j
+//             }
+//         }
+//     }
 
-    impl Iterator for SIter {
-        type Item = (usize, u64);
+//     impl Iterator for SIter {
+//         type Item = (usize, u64);
         
-        fn next(&mut self) -> Option<Self::Item> {
-            let j = self.i;
-            if j < self.k {
-                self.i += 1;
-                Some((self.value(j), self.i as u64))
-            } else if j == self.k {
-                self.i += 1;
-                Some((self.value(j), u64::MAX))
-            } else {
-                None
-            }
-        }   
-    }
+//         fn next(&mut self) -> Option<Self::Item> {
+//             let j = self.i;
+//             if j < self.k {
+//                 self.i += 1;
+//                 Some((self.value(j), self.i as u64))
+//             } else if j == self.k {
+//                 self.i += 1;
+//                 Some((self.value(j), u64::MAX))
+//             } else {
+//                 None
+//             }
+//         }   
+//     }
 
-    impl<const N: usize> Agent<usize, u32, usize> for TestAgent<N> {
+//     impl<const N: usize> Agent for TestAgent<N> {
 
-        type Iter = Iter<N>;
-        type SIter = SIter;
+//         type N = usize;
+//         type C = u32;
+//         type S = usize;
 
-        fn successors(&self, n: &usize) -> Self::Iter {
-            Self::Iter::new(self.steps, *n)
-        }
-    }
+//         type Iter = Iter<N>;
+//         type SIter = SIter;
+//         type FIter = IntoIter<usize>;
 
-    #[test]
-    fn test1() {
+//         fn successors(&self, n: &usize) -> Self::Iter {
+//             Self::Iter::new(self.steps, *n)
+//         }
 
-        let a = TestAgent::new([7, 13]);
+//         fn seats(&self, &n: &usize) -> Self::FIter {
+//             vec![n].into_iter()
+//         }
+//     }
 
-        let end = MultipleEnds::new(&vec![HashSet::from([4])]);
+//     #[test]
+//     fn test1() {
 
-        let suc = |n: &_| a.successors(n);
+//         let a = TestAgent::new([7, 13]);
 
-        let path = dijkstra_for_next_reservation(0, &end, suc, |_| true, 20);
+//         let end = MultipleEnds::new(&vec![HashSet::from([4])]);
 
-        println!("{:?}", path);
+//         let suc = |n: &_| a.successors(n);
 
-        let suc = |n: &_| a.successors(n).map(|(n, c, _)| (n, c));
+//         let path = dijkstra_for_next_reservation(0, &end, suc, |_| true, 20);
 
-        let path = dijkstra_for_multiple_ends(&0, &end, suc);
+//         println!("{:?}", path);
 
-        println!("{:?}", path);
-    }
-}
+//         let suc = |n: &_| a.successors(n).map(|(n, c, _)| (n, c));
+
+//         let path = dijkstra_for_multiple_ends(&0, &end, suc);
+
+//         println!("{:?}", path);
+//     }
+// }
