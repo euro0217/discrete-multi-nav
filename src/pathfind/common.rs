@@ -22,48 +22,50 @@ impl<N: Eq + Hash + Clone> MultipleEnds<N> {
 }
 
 #[derive(Debug)]
-pub struct Path<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash> {
-    nodes: Vec<(N, C)>,
+pub struct Path<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T = ()> {
+    nodes: Vec<(N, C, T)>,
 }
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash> Path<N, C> {
-    pub(crate) fn new(nodes: Vec<(N, C)>) -> Self {
+impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T> Path<N, C, T> {
+    pub(crate) fn new(nodes: Vec<(N, C, T)>) -> Self {
         Self { nodes }
     }
 
-    pub fn node(&self, index: usize) -> &(N, C) { &self.nodes[index] }
+    pub fn node(&self, index: usize) -> &(N, C, T) { &self.nodes[index] }
     pub fn total_cost(&self) -> C { self.nodes[self.nodes.len() - 1].1 }
     pub fn len(&self) -> usize { self.nodes.len() }
-    pub fn iter(&self) -> Iter<'_, (N, C)> { self.nodes.iter() }
-    pub fn into_iter(self) -> IntoIter<(N, C)> { self.nodes.into_iter() }
+    pub fn iter(&self) -> Iter<'_, (N, C, T)> { self.nodes.iter() }
+    pub fn into_iter(self) -> IntoIter<(N, C, T)> { self.nodes.into_iter() }
 }
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash> Index<usize> for Path<N, C> {
-    type Output = (N, C);
+impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T> Index<usize> for Path<N, C, T> {
+    type Output = (N, C, T);
     fn index(&self, index: usize) -> &Self::Output { self.node(index) }
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct NodeCost<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash> {
+pub(crate) struct NodeCost<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T = ()> where T: Clone {
     node: N,
-    cost: C
+    cost: C,
+    attr: T,
 }
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash> NodeCost<N, C> {
-    pub fn new(node: N, cost: C) -> Self {
-        Self { node, cost }
+impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T: Clone> NodeCost<N, C, T> {
+    pub fn new(node: N, cost: C, attr: T) -> Self {
+        Self { node, cost, attr }
     }
     pub fn node(&self) -> &N { &self.node }
     pub fn cost(&self) -> C { self.cost }
+    pub fn attr(&self) -> &T { &self.attr }
 }
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash> Eq for NodeCost<N, C> {}
+impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T: Clone> Eq for NodeCost<N, C, T> {}
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash> PartialEq for NodeCost<N, C> {
+impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T: Clone> PartialEq for NodeCost<N, C, T> {
     fn eq(&self, other: &Self) -> bool { self.node == other.node }
 }
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash> Hash for NodeCost<N, C> {
+impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T: Clone> Hash for NodeCost<N, C, T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.node.hash(state);
     }
@@ -136,34 +138,3 @@ impl<C: Zero + Ord + Copy + Hash> Add for RCost<C> {
         }
     }
 }
-
-// pub struct Test<const N: usize> {
-//     a: [i32; N]
-// }
-
-
-// #[derive(Debug, Clone)]
-// pub(crate) struct RNode<N: Eq + Clone + Hash> {
-//     node: N,
-//     cost: bool,
-// }
-
-// impl<N: Eq + Clone + Hash> RNode<N> {
-//     pub fn new(node: N, cost: bool) -> Self {
-//         Self { node, cost }
-//     }
-//     pub fn node(&self) -> &N { &self.node }
-//     pub fn cost(&self) -> bool { self.cost }
-// }
-
-// impl<N: Eq + Clone + Hash> Eq for RNode<N> {}
-
-// impl<N: Eq + Clone + Hash> PartialEq for RNode<N> {
-//     fn eq(&self, other: &Self) -> bool { self.node == other.node }
-// }
-
-// impl<N: Eq + Clone + Hash> Hash for RNode<N> {
-//     fn hash<H: Hasher>(&self, state: &mut H) {
-//         self.node.hash(state);
-//     }
-// }

@@ -7,26 +7,33 @@ use crate::pathfind::common::RCost;
 
 use super::common::{Cost, MultipleEnds, Node, NodeCost, Path};
 
-pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS>(start: N, ends: &MultipleEnds<N>, mut successors: FN, seats_reservation: FS, max_reservation_cost: C)
--> Option<Path<N, C>> where
+pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS, T>(
+    start: N,
+    ends: &MultipleEnds<N>,
+    mut successors: FN,
+    seats_reservation: FS,
+    max_reservation_cost: C
+)
+-> Option<Path<N, C, T>> where
     N: Eq + Hash + Clone,
     C: Zero + Ord + Copy + Hash,
     S: Eq + Clone,
     FN: FnMut(&N) -> IN,
-    IN: IntoIterator<Item = (N, C, IS)>,
+    IN: IntoIterator<Item = (N, C, IS, T)>,
     IS: Iterator<Item = S>,
     FS: Fn(&S) -> bool,
+    T: Default + Clone,
 {
     if ends.is_empty() { return None }
 
     let successors = |n: &N| {
         successors(n)
             .into_iter()
-            .map(|(m, dc, ss)| {
+            .map(|(m, dc, ss, t)| {
                 if ss.into_iter().all(|s| seats_reservation(&s)) {
-                    (m, RCost::Add { dc, max: max_reservation_cost })
+                    (m, RCost::Add { dc, max: max_reservation_cost }, t)
                 } else {
-                    (m, RCost::AddBlocked { dc })
+                    (m, RCost::AddBlocked { dc }, t)
                 }
             })
     };
@@ -34,58 +41,59 @@ pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS>(start: N, ends: &M
     dijkstra_for_multiple_ends(&start, ends, successors)
         .and_then(|path| Some(Path::new(
             path.into_iter()
-                .take_while(|(_, c)| {
+                .take_while(|(_, c, _)| {
                     if let RCost::Cost { cost: _, r: _, blocked } = c {
                         !blocked
                     } else {
                         false
                     }
                 })
-                .map(|(n, c)| {
+                .map(|(n, c, t)| {
                     if let RCost::Cost { cost, r, blocked: _ } = c {
-                        (n, cost + r)
+                        (n, cost + r, t)
                     } else {
                         panic!()
                     }
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<(N, C, T)>>()
         )))
 }
 
-pub fn dijkstra_for_multiple_ends<N, C, FN, IN>(start: &N, ends: &MultipleEnds<N>, mut successors: FN)
--> Option<Path<N, C>> where
+pub fn dijkstra_for_multiple_ends<N, C, FN, IN, T>(start: &N, ends: &MultipleEnds<N>, mut successors: FN)
+-> Option<Path<N, C, T>> where
     N: Eq + Hash + Clone,
     C: Zero + Ord + Copy + Hash,
     FN: FnMut(&N) -> IN,
-    IN: IntoIterator<Item = (N, C)>,
+    IN: IntoIterator<Item = (N, C, T)>,
+    T: Default + Clone,
 {
     if ends.is_empty() { return None }
 
-    let successors = |n: &NodeCost<Node<N>, C>| {
+    let successors = |n: &NodeCost<Node<N>, C, T>| {
         let (node, c0) = (n.node(), n.cost());
         match node {
             Node::Node(n) => successors(n)
                 .into_iter()
-                .map(move |(m, c)| (NodeCost::new(Node::Node(m), c0 + c), Cost::new(0, c)))
+                .map(move |(m, c, t)| (NodeCost::new(Node::Node(m), c0 + c, t), Cost::new(0, c)))
                 .chain(
                     ends.end_index(&n)
-                        .and_then(|i| Some(vec![(NodeCost::new(Node::Dest, C::zero()), Cost::new(i, C::zero()))]))
+                        .and_then(|i| Some(vec![(NodeCost::new(Node::Dest, C::zero(), T::default()), Cost::new(i, C::zero()))]))
                         .unwrap_or_default()
                 ),
             Node::Dest => panic!(),
         }
     };
 
-    dijkstra(&NodeCost::new(Node::Node(start.clone()), C::zero()), successors, |n| n.node() == &Node::Dest)
+    dijkstra(&NodeCost::new(Node::Node(start.clone()), C::zero(), T::default()), successors, |n| n.node() == &Node::Dest)
         .and_then(|(path, _)| 
             Some(Path::new(path[1..].into_iter()
                 .filter_map(|node| {
                     match node.node() {
-                        Node::Node(n) => Some((n.clone(), node.cost())),
+                        Node::Node(n) => Some((n.clone(), node.cost(), node.attr().clone())),
                         Node::Dest => None,
                     }
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<(N, C ,T)>>()
         )))
 }
 
@@ -100,7 +108,7 @@ mod tests {
     #[test]
     fn multiple_ends_test0() {
         let ends = MultipleEnds::new(&vec![]);
-        let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1));
+        let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1, ()));
         
         assert!(dijkstra_for_multiple_ends(&(2, 3), &ends, successors).is_none());
     }
@@ -108,20 +116,20 @@ mod tests {
     #[test]
     fn multiple_ends_test1() {
         let ends = MultipleEnds::new(&vec![HashSet::from([(5, 1)])]);
-        let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1));
+        let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1, ()));
         
         let path = dijkstra_for_multiple_ends(&(2, 3), &ends, successors).unwrap();
 
         assert_eq!(path.total_cost(), 5);
         assert_eq!(path.len(), 5);
-        assert_eq!(path[path.len() - 1], ((5, 1), 5));
-        assert_eq!(path.iter().map(|(_, c)| *c).collect::<Vec<_>>(), vec![1, 2, 3, 4, 5]);
+        assert_eq!(path[path.len() - 1], ((5, 1), 5, ()));
+        assert_eq!(path.iter().map(|(_, c, _)| *c).collect::<Vec<_>>(), vec![1, 2, 3, 4, 5]);
     }
 
     #[test]
     fn multiple_ends_test2() {
         let ends = MultipleEnds::new(&vec![HashSet::from([(6, -1)]), HashSet::from([(5, 1)])]);
-        let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1));
+        let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1, ()));
         
         let path = dijkstra_for_multiple_ends(&(2i32, 3i32), &ends, successors).unwrap();
 
@@ -129,19 +137,19 @@ mod tests {
         assert_eq!(path.len(), 8);
         assert!((path[0].0.0 - 2).abs() <= 1);
         assert!((path[0].0.1 - 3).abs() <= 1);
-        assert_eq!(path[path.len() - 1], ((6, -1), 8));
+        assert_eq!(path[path.len() - 1], ((6, -1), 8, ()));
     }
 
     #[test]
     fn multiple_ends_test3() {
         let ends = MultipleEnds::new(&vec![HashSet::from([(6, -1), (-1, 7)]), HashSet::from([(5, 1)])]);
-        let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1));
+        let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1, ()));
         
         let path = dijkstra_for_multiple_ends(&(2, 3), &ends, successors).unwrap();
 
         assert_eq!(path.total_cost(), 7);
         assert_eq!(path.len(), 7);
-        assert_eq!(path[path.len() - 1], ((-1, 7), 7));
+        assert_eq!(path[path.len() - 1], ((-1, 7), 7, ()));
     }
 
     #[test]
@@ -149,7 +157,7 @@ mod tests {
         let ends = MultipleEnds::new(&vec![HashSet::from([(13, 10)])]);
         let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)]
             .into_iter()
-            .filter_map(|(x, y): (i32, i32)| if x.abs() < 10 && y.abs() < 10 { Some(((x, y), 1)) } else { None });
+            .filter_map(|(x, y): (i32, i32)| if x.abs() < 10 && y.abs() < 10 { Some(((x, y), 1, ())) } else { None });
         
         assert!(dijkstra_for_multiple_ends(&(2, 3), &ends, successors).is_none());
     }
@@ -159,13 +167,13 @@ mod tests {
         let ends = MultipleEnds::new(&vec![HashSet::from([(13, 10)]), HashSet::from([(6, -1)])]);
         let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)]
             .into_iter()
-            .filter_map(|(x, y): (i32, i32)| if x.abs() < 10 && y.abs() < 10 { Some(((x, y), 1)) } else { None });
+            .filter_map(|(x, y): (i32, i32)| if x.abs() < 10 && y.abs() < 10 { Some(((x, y), 1, ())) } else { None });
         
         let path = dijkstra_for_multiple_ends(&(2, 3), &ends, successors).unwrap();
 
         assert_eq!(path.total_cost(), 8);
         assert_eq!(path.len(), 8);
-        assert_eq!(path[path.len() - 1], ((6, -1), 8));
+        assert_eq!(path[path.len() - 1], ((6, -1), 8, ()));
     }
 
     #[test]
@@ -175,7 +183,7 @@ mod tests {
         let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)]
             .into_iter()
             .filter_map(|(x, y): (i32, i32)| if 0 <= x && x < 10 && 0 <= y && y < 10 {
-                Some(((x, y), 1, s3x3(x, y))) } else { None }
+                Some(((x, y), 1, s3x3(x, y), ())) } else { None }
             );
 
         let seats_reservation = |&(x, y): &_| {
@@ -225,7 +233,7 @@ mod tests {
                 (Some(e), Some(a)) => {
                     assert_eq!(e.len(), a.len());
                     for i in 0..e.len() {
-                        assert_eq!((e[i], i + 1), a[i]);
+                        assert_eq!((e[i], i + 1, ()), a[i]);
                     }
                 },
             }
