@@ -1,4 +1,4 @@
-use std::{hash::Hash, ops::IndexMut};
+use std::{fmt::Debug, hash::Hash, ops::IndexMut};
 
 use num_traits::{bounds::UpperBounded, One, Unsigned, Zero};
 
@@ -9,7 +9,7 @@ pub trait Map<U: Copy + Unsigned + UpperBounded, T = ()>: IndexMut<Self::SI, Out
     type SI: Eq + Clone;
     type Seat: Seat<T, U>;
     type Node: Eq + Hash + Clone;
-    type C: Zero + One + Ord + Copy + Hash;
+    type C: Zero + One + Ord + Copy + Hash + Debug;
     type I: Eq + Hash + Clone + Default;
     type SIter: Iterator<Item = Self::SI>;
     type SCIter: Iterator<Item = (Self::I, Self::Node, Self::C)>;
@@ -17,6 +17,6 @@ pub trait Map<U: Copy + Unsigned + UpperBounded, T = ()>: IndexMut<Self::SI, Out
 
     fn seats(&self, n: &Self::Node, t: &T) -> Self::SIter;
     fn successors(&self, n: &Self::Node, t: &T) -> Self::SCIter;
-    fn successor(&self, n: &Self::Node, t: &T, i: &Self::I) -> &Self::Node;
+    fn successor(&self, n: &Self::Node, t: &T, i: &Self::I) -> Self::Node;
     fn seats_between(&self, n: &Self::Node, t: &T, i: &Self::I) -> Self::SBIter;
 }
