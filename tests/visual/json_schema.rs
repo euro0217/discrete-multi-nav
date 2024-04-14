@@ -12,6 +12,7 @@ pub struct Data {
 pub struct Seat {
     pub x: i32,
     pub y: i32,
+    pub nexts: Vec<usize>,
     pub agent: Vec<Option<u32>>,
 }
 

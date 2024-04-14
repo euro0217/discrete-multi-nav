@@ -71,7 +71,6 @@ where
             self.map[d.seat()].remove(i);
         }
 
-        //
         let (mut idxs_suc, mut idxs_fail) = (vec![], vec![]);
         while let Some(idx) = self.queue.pop_front() {
             let Some(a) = self.agents.get_mut(&idx) else { continue };
@@ -147,30 +146,40 @@ where
         
         a.departs(path.iter().map(|(n, c, _)| (n.clone(), *c)));
 
-        let mut seats = HashMap::new();
-        let mut c0 = self.time;
-        for s in self.map.seats(a.current(), a.kind()) {
-            Self::add_seats(&mut seats, s, c0);
-        }
-        for (n, c, i) in path.into_iter() {
-            for s in self.map.seats(&n, a.kind()) {
-                Self::add_seats(&mut seats, s, self.time + c);
-            }
+        let len = path.len();
 
+        let mut seats = HashMap::new();
+        let mut c0 = self.time + M::C::one();
+        for s in self.map.seats(a.current(), a.kind()) {
+            Self::add_seats(&mut seats, s, if len > 0 { Some(c0) } else { None });
+        }
+
+        for (j, (n, c, i)) in path.into_iter().enumerate() {
             for (s, d) in self.map.seats_between(&n, a.kind(), &i) {
-                Self::add_seats(&mut seats, s, c0 + d);
+                Self::add_seats(&mut seats, s, Some(c0 + d));
+            }
+            if j < len - 1 {
+                for s in self.map.seats(&n, a.kind()) {
+                    Self::add_seats(&mut seats, s, Some(self.time + M::C::one() + c));
+                }
+            } else {
+                for s in self.map.seats(&n, a.kind()) {
+                    Self::add_seats(&mut seats, s, None);
+                }
             }
             c0 = c0 + c;
         }
 
         for (s, t) in seats {
             self.map[s.clone()].add(idx);
-            self.durations.push(Duration::new(t, idx, s));
+            if let Some(t) = t {
+                self.durations.push(Duration::new(t, idx, s));
+            }
         }
         true
     }
 
-    fn add_seats(seats: &mut HashMap<M::SI, M::C>, s: M::SI, t: M::C) {
+    fn add_seats(seats: &mut HashMap<M::SI, Option<M::C>>, s: M::SI, t: Option<M::C>) {
         if let Some(&d0) = seats.get(&s) {
             if d0 >= t { return }
         }

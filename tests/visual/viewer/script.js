@@ -15,7 +15,22 @@ selector.onchange = (e) => {
 
         const agents = Object.keys(loaddata.agents);
 
+        const arrows = loaddata.seats.flatMap(s0 => (
+            s0.nexts.flatMap(i => {
+                const s1 = loaddata.seats[i]
+                return [...getArrow(s0.x, s0.y, s1.x, s1.y), [null, null]]
+            })
+        ))
+
         const data = [
+            {
+                x: arrows.map(a => a[0]),
+                y: arrows.map(a => a[1]),
+                fill: 'toself',
+                mode: 'none',
+                fillcolor: '#404040',
+                name: 'path',
+            },
             ...getSeats(loaddata, agents, 0),
             ...getAgents(loaddata, agents, 0),
         ];
@@ -24,6 +39,7 @@ selector.onchange = (e) => {
             .map(t => ({
                 name: t,
                 data: [
+                    {},
                     ...getSeats(loaddata, agents, t),
                     ...getAgents(loaddata, agents, t),
                 ]
@@ -135,3 +151,22 @@ const getAgents = (data, agents, t) =>
             opacity: 0.8,
         }
     });
+
+const getArrow = (x0, y0, x1, y1) => {
+    const w = 0.015, h = 0.2, hw = 0.06;
+
+    const dx = x1 - x0; dy = y1 - y0;
+    const l = Math.sqrt(dx * dx + dy * dy);
+    const tx = dx / l; ty = dy / l;
+    const nx = -ty; ny = tx;
+
+    return [
+        [x0 - nx * w, y0 - ny * w],
+        [x0 - nx * w + tx * (l - h), y0 - ny * w + ty * (l - h)],
+        [x0 - nx * hw + tx * (l - h), y0 - ny * hw + ty * (l - h)],
+        [x1, y1],
+        [x0 + nx * hw + tx * (l - h), y0 + ny * hw + ty * (l - h)],
+        [x0 + nx * w + tx * (l - h), y0 + ny * w + ty * (l - h)],
+        [x0 + nx * w, y0 + ny * w],
+    ]
+}
