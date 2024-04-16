@@ -136,3 +136,24 @@ fn test1_3() {
 
     output_file(&"test1-3.json".to_string(), &output);
 }
+
+#[test]
+fn test1_4() {
+
+    let (map, mut s, seats) = testdata1(3);
+
+    let idxs = [0, 1, 7, 8, 10, 11]
+        .iter()
+        .map(|&i| s.add((), VecDeque::from([i]), MultipleEnds::new(&vec![HashSet::from([VecDeque::from([10])])])))
+        .collect::<Vec<_>>();
+    
+    let mut output = Data{ seats, agents: HashMap::new()};
+
+    output_data(&s, &map, 0, &mut output, &idxs);
+    for t in 1..=12 {
+        s.step();
+        output_data(&s, &map, t, &mut output, &idxs)
+    }
+
+    output_file(&"test1-4.json".to_string(), &output);
+}

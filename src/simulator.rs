@@ -1,4 +1,4 @@
-use std::{collections::{BTreeMap, BinaryHeap, HashMap, VecDeque}, hash::Hash};
+use std::{collections::{BTreeMap, BinaryHeap, HashMap, VecDeque}, fmt::Debug, hash::Hash, iter::{self, Chain}, marker::PhantomData};
 
 use num_traits::{bounds::UpperBounded, Unsigned, One};
 
@@ -20,7 +20,7 @@ where
 
 impl<M, U, T> Simulator<M, U, T>
 where
-    U: Copy + Unsigned + UpperBounded + Ord,
+    U: Copy + Unsigned + UpperBounded + Ord + Debug,
     M: Map<U, T>,
     M::SI: Hash,
 {
@@ -58,7 +58,9 @@ where
         return Idx::new(self.agents.keys().max().unwrap().value() + U::one())
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self) where <M as Map<U, T>>::SI: Debug, <M as Map<U, T>>::Node: Debug {
+
+        println!("time: {:?}", self.time);
 
         // seat の解放
         while let Some(d) = self.durations.peek() {
@@ -68,7 +70,23 @@ where
 
             let d = self.durations.pop().unwrap();
             let i = d.index();
-            self.map[d.seat()].remove(i);
+            let s = d.seat();
+            // println!("  {:?}", s);
+            self.map[s].remove(i);
+        }
+
+        for &idx in &self.queue {
+            let Some(a) = self.agents.get_mut(&idx) else { continue };
+            if let AgentState::NotPlaced = a.state() {
+                if self.map
+                    .seats(a.current(), a.kind())
+                    .all(|n| self.map[n].is_empty_for(idx)) {
+                        self.map
+                            .seats(a.current(), a.kind())
+                            .for_each(|n| self.map[n].add(idx));
+                        a.place();
+                    }
+            }
         }
 
         let (mut idxs_suc, mut idxs_fail) = (vec![], vec![]);
@@ -76,24 +94,14 @@ where
             let Some(a) = self.agents.get_mut(&idx) else { continue };
 
             let success = match a.state() {
-                AgentState::NotPlaced => {
-                    if self.map
-                        .seats(a.current(), a.kind())
-                        .all(|n| self.map[n].is_empty_for(idx)) {
-                        self.map
-                            .seats(a.current(), a.kind())
-                            .for_each(|n| self.map[n].add(idx));
-                        a.place();
-                        self.set_nexts(idx)
-                    } else {
-                        false
-                    }
-                },
+                AgentState::NotPlaced => false,
                 AgentState::Stop => self.set_nexts(idx),
                 AgentState::Moving { nexts } => {
                     if nexts[0].1 <= self.time {
                         a.arrives();
-                        self.set_nexts(idx);
+                        if let AgentState::Stop = a.state() {
+                            self.set_nexts(idx);
+                        }
                         true
                     } else {
                         false
@@ -113,7 +121,8 @@ where
         self.time = self.time + M::C::one();
     }
 
-    fn set_nexts(&mut self, idx: Idx<T, U>) -> bool {
+    fn set_nexts(&mut self, idx: Idx<T, U>) -> bool where <M as Map<U, T>>::SI: Debug, <M as Map<U, T>>::Node: Debug {
+        println!("  {:?}", idx);
         let Some(a) = self.agents.get_mut(&idx) else {
             return false
         };
@@ -121,28 +130,29 @@ where
         let path = dijkstra_for_next_reservation(
             a.current().clone(),
             a.destinations(),
-            |n| self.map
-                .successors(n, a.kind())
-                .map(|(i, n, c)| (
-                    n.clone(),
-                    c,
-                    self.map
-                        .seats_between(&n, a.kind(), &i)
-                        .map(|(s, _)| s)
-                        .chain(
-                            self.map
-                                .seats(&self.map.successor(&n, a.kind(), &i), a.kind())
-                                .into_iter()
-                        ),
-                    i,
-                )),
+            |n| Successor::new(n.clone(), &self.map, a.kind()),
+            // |n| {
+            //     self.map
+            //         .successors(&n, a.kind())
+            //         .map(|(i, m, c)| (
+            //             m.clone(),
+            //             c,
+            //             self.map
+            //                 .seats_between(&m, a.kind(), &i)
+            //                 .map(|(s, _)| s)
+            //                 .chain(self.map.seats(&self.map.successor(&m, a.kind(), &i), a.kind())),
+            //             i,
+            //         ))
+            // },
             |s: &M::SI| self.map[s.clone()].is_empty_for(idx),
             self.max_reservation_time,
         );
 
         let Some(path) = path else {
+            // println!("   path: not found");
             return false
         };
+        // println!("   path: len = {}", path.len());
         
         a.departs(path.iter().map(|(n, c, _)| (n.clone(), *c)));
 
@@ -171,6 +181,7 @@ where
         }
 
         for (s, t) in seats {
+            println!("  {:?} {:?}", s, t);
             self.map[s.clone()].add(idx);
             if let Some(t) = t {
                 self.durations.push(Duration::new(t, idx, s));
@@ -181,8 +192,72 @@ where
 
     fn add_seats(seats: &mut HashMap<M::SI, Option<M::C>>, s: M::SI, t: Option<M::C>) {
         if let Some(&d0) = seats.get(&s) {
-            if d0 >= t { return }
+            let a = match (d0, t) {
+                (None, Some(_)) => true,
+                (Some(d0), Some(t)) => d0 >= t,
+                _ => false,
+            };
+            if a { return }
         }
         seats.insert(s, t);
+    }
+}
+
+struct Successor<'a, M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T = ()> {
+    node: M::Node,
+    map: &'a M,
+    kind: &'a T,
+    iter: M::SCIter,
+    _phu: PhantomData<U>,
+}
+
+impl<'a, M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T> Successor<'a, M, U, T> {
+    fn new(node: M::Node, map: &'a M, kind: &'a T) -> Self {
+        let iter = map.successors(&node, &kind);
+        Self { node, map, kind, iter, _phu: PhantomData }
+    }
+}
+
+impl<'a, M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T> Iterator for Successor<'a, M, U, T> {
+    type Item = (M::Node, M::C, SuccessorSeats<M, U, T>, M::I);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next()
+            .and_then(|(i, m, c)| Some((
+                m,
+                c,
+                SuccessorSeats::new(self.map, &self.node, &self.kind, &i),
+                i,
+            )))
+    }
+}
+
+struct SuccessorSeats <M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T = ()> {
+    s: M::SBIter,
+    t: M::SIter,
+}
+
+impl<M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T> SuccessorSeats<M, U, T> {
+    fn new<'a>(map: &'a M, node: &'a M::Node, kind: &'a T, index: &'a M::I) -> Self {
+
+        let s: M::SBIter = map
+            .seats_between(node, kind, index);
+
+        let t: M::SIter = map
+            .seats(&map.successor(node, kind, index), kind);
+
+        Self { s, t }
+    }
+}
+
+impl<M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T> Iterator for SuccessorSeats<M, U, T> {
+    type Item = M::SI;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((s, _)) = self.s.next() {
+            return Some(s)
+        }
+        self.t.next()
     }
 }
