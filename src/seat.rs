@@ -1,8 +1,13 @@
-use num_traits::{bounds::UpperBounded, Unsigned};
+use num_traits::bounds::UpperBounded;
+use trait_set::trait_set;
 
-use crate::index::index::Idx;
+use crate::index::index::{Idx, IdxType};
 
-pub trait Seat<T, U: Unsigned + Copy + UpperBounded> {
+trait_set! {
+    pub trait AgentIdxType = IdxType + UpperBounded
+}
+
+pub trait Seat<T, U: AgentIdxType> {
 
     fn is_empty_for(&self, idx: Idx<T, U>) -> bool;
     fn add(&mut self, idx: Idx<T, U>);

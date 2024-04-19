@@ -1,11 +1,10 @@
-use std::{fmt::Debug, hash::Hash};
+use std::fmt::Debug;
 
-use num_traits::Zero;
 use pathfinding::directed::dijkstra::dijkstra;
 
 use crate::pathfind::common::RCost;
 
-use super::common::{Cost, MultipleEnds, Node, NodeCost, Path};
+use super::common::{Cost, CostW, MultipleEnds, Node, NodeCost, NodeDest, Path, Seat};
 
 pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS, T>(
     start: N,
@@ -15,9 +14,9 @@ pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS, T>(
     max_reservation_cost: C
 )
 -> Option<Path<N, C, T>> where
-    N: Eq + Hash + Clone + Debug,
-    C: Zero + Ord + Copy + Hash,
-    S: Eq + Clone + Debug,
+    N: Node + Debug,
+    C: Cost,
+    S: Seat + Debug,
     FN: FnMut(&N) -> IN,
     IN: IntoIterator<Item = (N, C, IS, T)>,
     IS: Iterator<Item = S>,
@@ -65,36 +64,36 @@ pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS, T>(
 
 pub fn dijkstra_for_multiple_ends<N, C, FN, IN, T>(start: &N, ends: &MultipleEnds<N>, mut successors: FN)
 -> Option<Path<N, C, T>> where
-    N: Eq + Hash + Clone,
-    C: Zero + Ord + Copy + Hash,
+    N: Node,
+    C: Cost,
     FN: FnMut(&N) -> IN,
     IN: IntoIterator<Item = (N, C, T)>,
     T: Default + Clone,
 {
     if ends.is_empty() { return None }
 
-    let successors = |n: &NodeCost<Node<N>, C, T>| {
+    let successors = |n: &NodeCost<NodeDest<N>, C, T>| {
         let (node, c0) = (n.node(), n.cost());
         match node {
-            Node::Node(n) => successors(n)
+            NodeDest::Node(n) => successors(n)
                 .into_iter()
-                .map(move |(m, c, t)| (NodeCost::new(Node::Node(m), c0 + c, t), Cost::new(0, c)))
+                .map(move |(m, c, t)| (NodeCost::new(NodeDest::Node(m), c0 + c, t), CostW::new(0, c)))
                 .chain(
                     ends.end_index(&n)
-                        .and_then(|i| Some(vec![(NodeCost::new(Node::Dest, C::zero(), T::default()), Cost::new(i, C::zero()))]))
+                        .and_then(|i| Some(vec![(NodeCost::new(NodeDest::Dest, C::zero(), T::default()), CostW::new(i, C::zero()))]))
                         .unwrap_or_default()
                 ),
-            Node::Dest => panic!(),
+            NodeDest::Dest => panic!(),
         }
     };
 
-    dijkstra(&NodeCost::new(Node::Node(start.clone()), C::zero(), T::default()), successors, |n| n.node() == &Node::Dest)
+    dijkstra(&NodeCost::new(NodeDest::Node(start.clone()), C::zero(), T::default()), successors, |n| n.node() == &NodeDest::Dest)
         .and_then(|(path, _)| 
             Some(Path::new(path[1..].into_iter()
                 .filter_map(|node| {
                     match node.node() {
-                        Node::Node(n) => Some((n.clone(), node.cost(), node.attr().clone())),
-                        Node::Dest => None,
+                        NodeDest::Node(n) => Some((n.clone(), node.cost(), node.attr().clone())),
+                        NodeDest::Dest => None,
                     }
                 })
                 .collect::<Vec<(N, C ,T)>>()

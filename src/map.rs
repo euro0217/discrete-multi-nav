@@ -1,15 +1,15 @@
 use std::{fmt::Debug, hash::Hash, ops::IndexMut};
 
-use num_traits::{bounds::UpperBounded, One, Unsigned, Zero};
+use num_traits::One;
 
-use crate::seat::Seat;
+use crate::{pathfind::common::{Cost, Node, Seat as TSeat}, seat::{AgentIdxType, Seat}};
 
 
-pub trait Map<U: Copy + Unsigned + UpperBounded, T = ()>: IndexMut<Self::SI, Output = Self::Seat> {
-    type SI: Eq + Clone;
+pub trait Map<U: AgentIdxType, T = ()>: IndexMut<Self::SI, Output = Self::Seat> {
+    type SI: TSeat;
     type Seat: Seat<T, U>;
-    type Node: Eq + Hash + Clone;
-    type C: Zero + One + Ord + Copy + Hash + Debug;
+    type Node: Node;
+    type C: Cost + One + Debug;
     type I: Eq + Hash + Clone + Default;
     type SIter: Iterator<Item = Self::SI>;
     type SCIter: Iterator<Item = (Self::I, Self::Node, Self::C)>;

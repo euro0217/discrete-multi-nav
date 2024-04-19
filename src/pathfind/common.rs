@@ -1,12 +1,19 @@
 use std::{collections::{HashMap, HashSet}, fmt::Debug, hash::{Hash, Hasher}, ops::{Add, Index}, slice::Iter, vec::IntoIter};
 
 use num_traits::Zero;
+use trait_set::trait_set;
 
-pub struct MultipleEnds<N: Eq + Hash + Clone> {
+trait_set! {
+    pub trait Node = Eq + Hash + Clone;
+    pub trait Cost = Zero + Ord + Copy + Hash;
+    pub trait Seat = Eq + Clone;
+}
+
+pub struct MultipleEnds<N: Node> {
     ends: HashMap<N, usize>,
 }
 
-impl<N: Eq + Hash + Clone> MultipleEnds<N> {
+impl<N: Node> MultipleEnds<N> {
     pub fn new(ends: &Vec<HashSet<N>>) -> Self {
         let ends = ends
             .into_iter()
@@ -22,11 +29,11 @@ impl<N: Eq + Hash + Clone> MultipleEnds<N> {
 }
 
 #[derive(Debug)]
-pub struct Path<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T = ()> {
+pub struct Path<N: Node, C: Cost, T = ()> {
     nodes: Vec<(N, C, T)>,
 }
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T> Path<N, C, T> {
+impl<N: Node, C: Cost, T> Path<N, C, T> {
     pub(crate) fn new(nodes: Vec<(N, C, T)>) -> Self {
         Self { nodes }
     }
@@ -38,19 +45,19 @@ impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T> Path<N, C, T> {
     pub fn into_iter(self) -> IntoIter<(N, C, T)> { self.nodes.into_iter() }
 }
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T> Index<usize> for Path<N, C, T> {
+impl<N: Node, C: Cost, T> Index<usize> for Path<N, C, T> {
     type Output = (N, C, T);
     fn index(&self, index: usize) -> &Self::Output { self.node(index) }
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct NodeCost<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T = ()> where T: Clone {
+pub(crate) struct NodeCost<N: Node, C: Cost, T = ()> where T: Clone {
     node: N,
     cost: C,
     attr: T,
 }
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T: Clone> NodeCost<N, C, T> {
+impl<N: Node, C: Cost, T: Clone> NodeCost<N, C, T> {
     pub fn new(node: N, cost: C, attr: T) -> Self {
         Self { node, cost, attr }
     }
@@ -59,34 +66,34 @@ impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T: Clone> NodeCost<N, C,
     pub fn attr(&self) -> &T { &self.attr }
 }
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T: Clone> Eq for NodeCost<N, C, T> {}
+impl<N: Node, C: Cost, T: Clone> Eq for NodeCost<N, C, T> {}
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T: Clone> PartialEq for NodeCost<N, C, T> {
+impl<N: Node, C: Cost, T: Clone> PartialEq for NodeCost<N, C, T> {
     fn eq(&self, other: &Self) -> bool { self.node == other.node }
 }
 
-impl<N: Eq + Clone + Hash, C: Zero + Ord + Copy + Hash, T: Clone> Hash for NodeCost<N, C, T> {
+impl<N: Node, C: Cost, T: Clone> Hash for NodeCost<N, C, T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.node.hash(state);
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub(crate) enum Node<N: Eq + Clone + Hash> { Node(N), Dest }
+pub(crate) enum NodeDest<N: Node> { Node(N), Dest }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub(crate) struct Cost<C: Zero + Ord + Copy> { i: usize, c: C }
+pub(crate) struct CostW<C: Zero + Ord + Copy> { i: usize, c: C }
 
-impl<C: Zero + Ord + Copy> Cost<C> {
+impl<C: Zero + Ord + Copy> CostW<C> {
     pub(crate) fn new(i: usize, c: C) -> Self { Self { i, c } }
 }
 
-impl<C: Zero + Ord + Copy> Zero for Cost<C> {
-    fn zero() -> Self { Cost { i: 0, c: C::zero() }}
+impl<C: Zero + Ord + Copy> Zero for CostW<C> {
+    fn zero() -> Self { CostW { i: 0, c: C::zero() }}
     fn is_zero(&self) -> bool { self.i == 0 && self.c == C::zero() }
 }
 
-impl<C: Zero + Ord + Copy> Add<Self> for Cost<C> {
+impl<C: Zero + Ord + Copy> Add<Self> for CostW<C> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -95,13 +102,13 @@ impl<C: Zero + Ord + Copy> Add<Self> for Cost<C> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum RCost<C: Zero + Ord + Copy + Hash> {
+pub enum RCost<C: Cost> {
     Cost { cost: C, r: C, blocked: bool },
     Add { dc: C, max: C },
     AddBlocked { dc: C },
 }
 
-impl<C: Zero + Ord + Copy + Hash> Zero for RCost<C> {
+impl<C: Cost> Zero for RCost<C> {
     fn zero() -> Self { Self::Cost { cost: C::zero(), r: C::zero(), blocked: false }}
     fn is_zero(&self) -> bool {
         if let Self::Cost { cost, r, blocked } = self {
@@ -112,7 +119,7 @@ impl<C: Zero + Ord + Copy + Hash> Zero for RCost<C> {
     }
 }
 
-impl<C: Zero + Ord + Copy + Hash> Add for RCost<C> {
+impl<C: Cost> Add for RCost<C> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {

@@ -1,13 +1,13 @@
 use std::{collections::{BTreeMap, BinaryHeap, HashMap, VecDeque}, fmt::Debug, hash::Hash, marker::PhantomData};
 
-use num_traits::{bounds::UpperBounded, Unsigned, One};
+use num_traits::One;
 
-use crate::{agent_data::{AgentData, AgentState}, duration::Duration, index::index::Idx, map::Map, pathfind::{common::MultipleEnds, dijkstra::dijkstra_for_next_reservation}, seat::Seat};
+use crate::{agent_data::{AgentData, AgentState}, duration::Duration, index::index::Idx, map::Map, pathfind::{common::MultipleEnds, dijkstra::dijkstra_for_next_reservation}, seat::{AgentIdxType, Seat}};
 
 
 pub struct Simulator<M, U, T = ()> 
 where
-    U: Copy + Unsigned + UpperBounded + Ord,
+    U: AgentIdxType + Ord,
     M: Map<U, T>,
 {
     time: M::C,
@@ -20,7 +20,7 @@ where
 
 impl<M, U, T> Simulator<M, U, T>
 where
-    U: Copy + Unsigned + UpperBounded + Ord + Debug,
+    U: AgentIdxType + Ord + Debug,
     M: Map<U, T>,
     M::SI: Hash,
 {
@@ -135,19 +135,6 @@ where
             a.current().clone(),
             destinations,
             |n| Successor::new(n.clone(), &self.map, a.kind()),
-            // |n| {
-            //     self.map
-            //         .successors(&n, a.kind())
-            //         .map(|(i, m, c)| (
-            //             m.clone(),
-            //             c,
-            //             self.map
-            //                 .seats_between(&m, a.kind(), &i)
-            //                 .map(|(s, _)| s)
-            //                 .chain(self.map.seats(&self.map.successor(&m, a.kind(), &i), a.kind())),
-            //             i,
-            //         ))
-            // },
             |s: &M::SI| self.map[s.clone()].is_empty_for(idx),
             self.max_reservation_time,
         );
@@ -207,7 +194,7 @@ where
     }
 }
 
-struct Successor<'a, M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T = ()> {
+struct Successor<'a, M: Map<U, T>, U: AgentIdxType, T = ()> {
     node: M::Node,
     map: &'a M,
     kind: &'a T,
@@ -215,14 +202,14 @@ struct Successor<'a, M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T = ()> {
     _phu: PhantomData<U>,
 }
 
-impl<'a, M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T> Successor<'a, M, U, T> {
+impl<'a, M: Map<U, T>, U: AgentIdxType, T> Successor<'a, M, U, T> {
     fn new(node: M::Node, map: &'a M, kind: &'a T) -> Self {
         let iter = map.successors(&node, &kind);
         Self { node, map, kind, iter, _phu: PhantomData }
     }
 }
 
-impl<'a, M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T> Iterator for Successor<'a, M, U, T> {
+impl<'a, M: Map<U, T>, U: AgentIdxType, T> Iterator for Successor<'a, M, U, T> {
     type Item = (M::Node, M::C, SuccessorSeats<M, U, T>, M::I);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -237,12 +224,12 @@ impl<'a, M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T> Iterator for Succes
     }
 }
 
-struct SuccessorSeats <M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T = ()> {
+struct SuccessorSeats <M: Map<U, T>, U: AgentIdxType, T = ()> {
     s: M::SBIter,
     t: M::SIter,
 }
 
-impl<M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T> SuccessorSeats<M, U, T> {
+impl<M: Map<U, T>, U: AgentIdxType, T> SuccessorSeats<M, U, T> {
     fn new<'a>(map: &'a M, node: &'a M::Node, kind: &'a T, index: &'a M::I) -> Self {
 
         let s: M::SBIter = map
@@ -255,7 +242,7 @@ impl<M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T> SuccessorSeats<M, U, T>
     }
 }
 
-impl<M: Map<U, T>, U: Copy + Unsigned + UpperBounded, T> Iterator for SuccessorSeats<M, U, T> {
+impl<M: Map<U, T>, U: AgentIdxType, T> Iterator for SuccessorSeats<M, U, T> {
     type Item = M::SI;
 
     fn next(&mut self) -> Option<Self::Item> {

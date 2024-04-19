@@ -1,6 +1,8 @@
 use num_traits::{bounds::UpperBounded, Unsigned};
 use std::{fmt::{Debug, Formatter}, hash::{Hash, Hasher}};
 
+use crate::seat::AgentIdxType;
+
 use super::index::Idx;
 
 
@@ -30,13 +32,13 @@ impl<T, U: Unsigned + UpperBounded + Copy> Nullable<T, U> {
     }
 }
 
-impl<T, U: Copy + Unsigned + UpperBounded + Hash> Hash for Nullable<T, U> {
+impl<T, U: AgentIdxType + Hash> Hash for Nullable<T, U> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.value.hash(state);
     }
 }
 
-impl<T, U: Copy + Unsigned + UpperBounded + Debug> Debug for Nullable<T, U> {
+impl<T, U: AgentIdxType + Debug> Debug for Nullable<T, U> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if self.is_null() {
             f.write_str("Idx {{ Null }}")
@@ -46,10 +48,10 @@ impl<T, U: Copy + Unsigned + UpperBounded + Debug> Debug for Nullable<T, U> {
     }
 }
 
-impl<T, U: Copy + Unsigned + UpperBounded> Clone for Nullable<T, U> {
+impl<T, U: AgentIdxType> Clone for Nullable<T, U> {
     fn clone(&self) -> Self {
         Self { value: self.value }
     }
 }
 
-impl<T, U: Copy + Unsigned + UpperBounded> Copy for Nullable<T, U> {}
+impl<T, U: AgentIdxType> Copy for Nullable<T, U> {}

@@ -1,10 +1,8 @@
-use std::{collections::VecDeque, hash::Hash};
+use std::collections::VecDeque;
 
-use num_traits::Zero;
+use crate::pathfind::common::{Cost, MultipleEnds, Node};
 
-use crate::pathfind::common::MultipleEnds;
-
-pub struct AgentData<N: Eq + Hash + Clone, C: Zero + Ord + Copy + Hash, T = ()>
+pub struct AgentData<N: Node, C: Cost, T = ()>
 {
     kind: T,
     current: N,
@@ -12,13 +10,13 @@ pub struct AgentData<N: Eq + Hash + Clone, C: Zero + Ord + Copy + Hash, T = ()>
     destinations: VecDeque<MultipleEnds<N>>,
 }
 
-impl<T: Default, N: Eq + Hash + Clone, C: Zero + Ord + Copy + Hash> AgentData<N, C, T> {
+impl<T: Default, N: Node, C: Cost> AgentData<N, C, T> {
     pub fn new_default(current: N, destinations: VecDeque<MultipleEnds<N>>) -> Self {
         Self { kind: T::default(), current, state: AgentState::NotPlaced, destinations }
     }
 }
 
-impl<T, N: Eq + Hash + Clone, C: Zero + Ord + Copy + Hash> AgentData<N, C, T> {
+impl<T, N: Node, C: Cost> AgentData<N, C, T> {
     pub fn new(kind: T, current: N, destinations: VecDeque<MultipleEnds<N>>) -> Self {
         Self { kind, current, state: AgentState::NotPlaced, destinations }
     }
