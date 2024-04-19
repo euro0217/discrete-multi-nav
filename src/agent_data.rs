@@ -9,17 +9,17 @@ pub struct AgentData<N: Eq + Hash + Clone, C: Zero + Ord + Copy + Hash, T = ()>
     kind: T,
     current: N,
     state: AgentState<N, C>,
-    destinations: MultipleEnds<N>,
+    destinations: VecDeque<MultipleEnds<N>>,
 }
 
 impl<T: Default, N: Eq + Hash + Clone, C: Zero + Ord + Copy + Hash> AgentData<N, C, T> {
-    pub fn new_default(current: N, destinations: MultipleEnds<N>) -> Self {
+    pub fn new_default(current: N, destinations: VecDeque<MultipleEnds<N>>) -> Self {
         Self { kind: T::default(), current, state: AgentState::NotPlaced, destinations }
     }
 }
 
 impl<T, N: Eq + Hash + Clone, C: Zero + Ord + Copy + Hash> AgentData<N, C, T> {
-    pub fn new(kind: T, current: N, destinations: MultipleEnds<N>) -> Self {
+    pub fn new(kind: T, current: N, destinations: VecDeque<MultipleEnds<N>>) -> Self {
         Self { kind, current, state: AgentState::NotPlaced, destinations }
     }
 
@@ -27,7 +27,9 @@ impl<T, N: Eq + Hash + Clone, C: Zero + Ord + Copy + Hash> AgentData<N, C, T> {
     pub fn kind(&self) -> &T { &self.kind }
     pub fn current(&self) -> &N { &self.current }
     pub fn state(&self) -> &AgentState<N, C> { &self.state }
-    pub fn destinations(&self) -> &MultipleEnds<N> { &self.destinations }
+    pub fn next_destinations(&self) -> Option<&MultipleEnds<N>> { self.destinations.get(0) }
+    pub fn all_destinations(&self) -> &VecDeque<MultipleEnds<N>> { &self.destinations }
+    pub fn destinations_mut(&mut self) -> &mut VecDeque<MultipleEnds<N>> { &mut self.destinations }
     
     pub(crate) fn place(&mut self) {
         self.state = AgentState::Stop;
@@ -46,6 +48,10 @@ impl<T, N: Eq + Hash + Clone, C: Zero + Ord + Copy + Hash> AgentData<N, C, T> {
             }
             if nexts.is_empty() {
                 self.state = AgentState::Stop;
+
+                if self.destinations[0].end_index(&self.current).is_some() {
+                    self.destinations.pop_front();
+                }
             }
         }
     }

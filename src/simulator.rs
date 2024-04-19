@@ -1,4 +1,4 @@
-use std::{collections::{BTreeMap, BinaryHeap, HashMap, VecDeque}, fmt::Debug, hash::Hash, iter::{self, Chain}, marker::PhantomData};
+use std::{collections::{BTreeMap, BinaryHeap, HashMap, VecDeque}, fmt::Debug, hash::Hash, marker::PhantomData};
 
 use num_traits::{bounds::UpperBounded, Unsigned, One};
 
@@ -40,7 +40,7 @@ where
     pub fn agents(&self) -> &BTreeMap<Idx<T, U>, AgentData<M::Node, M::C, T>> { &self.agents }
     pub fn agent(&self, idx: Idx<T, U>) -> Option<&AgentData<M::Node, M::C, T>> { self.agents.get(&idx) }
 
-    pub fn add(&mut self, agent: T, node: M::Node, destination: MultipleEnds<M::Node>) -> Idx<T, U> {
+    pub fn add(&mut self, agent: T, node: M::Node, destination: VecDeque<MultipleEnds<M::Node>>) -> Idx<T, U> {
         // node のバリデーション
         let idx = self.new_idx();
         self.agents.insert(idx, AgentData::new(agent, node, destination));
@@ -60,7 +60,7 @@ where
 
     pub fn step(&mut self) where <M as Map<U, T>>::SI: Debug, <M as Map<U, T>>::Node: Debug {
 
-        println!("time: {:?}", self.time);
+        // println!("time: {:?}", self.time);
 
         // seat の解放
         while let Some(d) = self.durations.peek() {
@@ -122,14 +122,18 @@ where
     }
 
     fn set_nexts(&mut self, idx: Idx<T, U>) -> bool where <M as Map<U, T>>::SI: Debug, <M as Map<U, T>>::Node: Debug {
-        println!("  {:?}", idx);
+        // println!("  {:?}", idx);
         let Some(a) = self.agents.get_mut(&idx) else {
             return false
         };
 
+        let Some(destinations) = a.next_destinations() else {
+            return false;
+        };
+
         let path = dijkstra_for_next_reservation(
             a.current().clone(),
-            a.destinations(),
+            destinations,
             |n| Successor::new(n.clone(), &self.map, a.kind()),
             // |n| {
             //     self.map
@@ -181,7 +185,7 @@ where
         }
 
         for (s, t) in seats {
-            println!("  {:?} {:?}", s, t);
+            // println!("  {:?} {:?}", s, t);
             self.map[s.clone()].add(idx);
             if let Some(t) = t {
                 self.durations.push(Duration::new(t, idx, s));
