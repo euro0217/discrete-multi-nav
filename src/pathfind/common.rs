@@ -51,7 +51,7 @@ impl<N: Node, C: Cost, T> Index<usize> for Path<N, C, T> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct NodeCost<N: Node, C: Cost, T = ()> where T: Clone {
+pub(crate) struct NodeCost<N: Node, C: Cost, T: Clone = ()> {
     node: N,
     cost: C,
     attr: T,

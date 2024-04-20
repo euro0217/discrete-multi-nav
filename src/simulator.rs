@@ -5,10 +5,7 @@ use num_traits::One;
 use crate::{agent_data::{AgentData, AgentState}, duration::Duration, index::index::Idx, map::Map, pathfind::{common::MultipleEnds, dijkstra::dijkstra_for_next_reservation}, seat::{AgentIdxType, Seat}};
 
 
-pub struct Simulator<M, U, T = ()> 
-where
-    U: AgentIdxType + Ord,
-    M: Map<U, T>,
+pub struct Simulator<M: Map<U, T>, U: AgentIdxType + Ord, T = ()> 
 {
     time: M::C,
     map: M,
@@ -18,11 +15,7 @@ where
     max_reservation_time: M::C,
 }
 
-impl<M, U, T> Simulator<M, U, T>
-where
-    U: AgentIdxType + Ord + Debug,
-    M: Map<U, T>,
-    M::SI: Hash,
+impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Hash
 {
     pub fn new(init_time: M::C, map: M, max_reservation_time: M::C) -> Self {
         Self {

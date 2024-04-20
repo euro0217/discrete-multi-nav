@@ -1,16 +1,16 @@
-use num_traits::{bounds::UpperBounded, Unsigned};
+use num_traits::bounds::UpperBounded;
 use std::{fmt::{Debug, Formatter}, hash::{Hash, Hasher}};
 
 use crate::seat::AgentIdxType;
 
-use super::index::Idx;
+use super::index::{Idx, IdxType};
 
 
-pub struct Nullable<T, U: Unsigned + UpperBounded + Copy> {
+pub struct Nullable<T, U: IdxType + UpperBounded> {
     value: Idx<T, U>,
 }
 
-impl<T, U: Unsigned + UpperBounded + Copy> Nullable<T, U> {
+impl<T, U: IdxType + UpperBounded + Copy> Nullable<T, U> {
     pub fn new(value: U) -> Self {
         Self { value: Idx::new(value) }
     }
