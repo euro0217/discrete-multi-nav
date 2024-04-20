@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, fmt::Debug, hash::{Hash, Hasher}, ops::{Add, Index}, slice::Iter, vec::IntoIter};
+use std::{collections::HashMap, hash::{Hash, Hasher}, ops::{Add, Index}, slice::Iter, vec::IntoIter};
 
 use num_traits::Zero;
 use trait_set::trait_set;
@@ -9,23 +9,20 @@ trait_set! {
     pub trait Seat = Eq + Clone;
 }
 
-pub struct MultipleEnds<N: Node> {
-    ends: HashMap<N, usize>,
+pub struct MultipleEnds<N: Node, C: Cost> {
+    ends: HashMap<N, C>,
 }
 
-impl<N: Node> MultipleEnds<N> {
-    pub fn new(ends: &Vec<HashSet<N>>) -> Self {
-        let ends = ends
-            .into_iter()
-            .enumerate()
-            .map(|(i, es)| es.into_iter().map(move |e| (e.clone(), i)))
-            .flatten()
-            .collect::<HashMap<_, _>>();
+impl<N: Node, C: Cost> MultipleEnds<N, C> {
+    pub fn new(ends: HashMap<N, C>) -> Self {
         Self { ends }
+    }
+    pub fn new_as_all_zero(ends: Vec<N>) -> Self {
+        Self { ends: ends.into_iter().map(|n| (n, C::zero())).collect::<HashMap<_, _>>() }
     }
 
     pub fn is_empty(&self) -> bool { self.ends.is_empty() }
-    pub fn end_index(&self, node: &N) -> Option<usize> { self.ends.get(node).copied() }
+    pub fn end_index(&self, node: &N) -> Option<C> { self.ends.get(node).copied() }
 }
 
 #[derive(Debug)]
@@ -81,25 +78,25 @@ impl<N: Node, C: Cost, T: Clone> Hash for NodeCost<N, C, T> {
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub(crate) enum NodeDest<N: Node> { Node(N), Dest }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub(crate) struct CostW<C: Zero + Ord + Copy> { i: usize, c: C }
+// #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// pub(crate) struct CostW<C: Zero + Ord + Copy> { i: usize, c: C }
 
-impl<C: Zero + Ord + Copy> CostW<C> {
-    pub(crate) fn new(i: usize, c: C) -> Self { Self { i, c } }
-}
+// impl<C: Zero + Ord + Copy> CostW<C> {
+//     pub(crate) fn new(i: usize, c: C) -> Self { Self { i, c } }
+// }
 
-impl<C: Zero + Ord + Copy> Zero for CostW<C> {
-    fn zero() -> Self { CostW { i: 0, c: C::zero() }}
-    fn is_zero(&self) -> bool { self.i == 0 && self.c == C::zero() }
-}
+// impl<C: Zero + Ord + Copy> Zero for CostW<C> {
+//     fn zero() -> Self { CostW { i: 0, c: C::zero() }}
+//     fn is_zero(&self) -> bool { self.i == 0 && self.c == C::zero() }
+// }
 
-impl<C: Zero + Ord + Copy> Add<Self> for CostW<C> {
-    type Output = Self;
+// impl<C: Zero + Ord + Copy> Add<Self> for CostW<C> {
+//     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        Self { i: self.i + rhs.i, c: self.c + rhs.c }
-    }
-}
+//     fn add(self, rhs: Self) -> Self::Output {
+//         Self { i: self.i + rhs.i, c: self.c + rhs.c }
+//     }
+// }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RCost<C: Cost> {

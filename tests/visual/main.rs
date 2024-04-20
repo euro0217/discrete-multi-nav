@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet, VecDeque}, fs::File, path::Path};
+use std::{collections::{HashMap, VecDeque}, fs::File, path::Path};
 
 use discrete_multi_nav::{agent_data::AgentState, index::index::Idx, pathfind::common::MultipleEnds, simulator::Simulator};
 use json_schema::{Agent, Data, Seat};
@@ -85,7 +85,7 @@ fn test1_1() {
 
     let (map, mut s, seats) = testdata1(3);
 
-    let i0 = s.add((), VecDeque::from([1, 0]), VecDeque::from([MultipleEnds::new(&vec![HashSet::from([VecDeque::from([8, 7])])])]));
+    let i0 = s.add((), VecDeque::from([1, 0]), VecDeque::from([MultipleEnds::new_as_all_zero(vec![VecDeque::from([8, 7])])]));
     
     let mut output = Data{ seats, agents: HashMap::new() };
 
@@ -103,8 +103,8 @@ fn test1_2() {
 
     let (map, mut s, seats) = testdata1(3);
 
-    let i0 = s.add((), VecDeque::from([0, 11, 10]), VecDeque::from([MultipleEnds::new(&vec![HashSet::from([VecDeque::from([7, 6, 5])])])]));
-    let i1 = s.add((), VecDeque::from([7, 6]), VecDeque::from([MultipleEnds::new(&vec![HashSet::from([VecDeque::from([13, 3])])])]));
+    let i0 = s.add((), VecDeque::from([0, 11, 10]), VecDeque::from([MultipleEnds::new_as_all_zero(vec![VecDeque::from([7, 6, 5])])]));
+    let i1 = s.add((), VecDeque::from([7, 6]), VecDeque::from([MultipleEnds::new_as_all_zero(vec![VecDeque::from([13, 3])])]));
     
     let mut output = Data{ seats, agents: HashMap::new() };
 
@@ -123,7 +123,7 @@ fn test1_3() {
     let (map, mut s, seats) = testdata1(3);
 
     let idxs = (0..3)
-        .map(|_| s.add((), VecDeque::from([7, 6]), VecDeque::from([MultipleEnds::new(&vec![HashSet::from([VecDeque::from([5, 4])])])])))
+        .map(|_| s.add((), VecDeque::from([7, 6]), VecDeque::from([MultipleEnds::new_as_all_zero(vec![VecDeque::from([5, 4])])])))
         .collect::<Vec<_>>();
     
     let mut output = Data{ seats, agents: HashMap::new()};
@@ -144,7 +144,7 @@ fn test1_4() {
 
     let idxs = [0, 1, 7, 8, 10, 11]
         .iter()
-        .map(|&i| s.add((), VecDeque::from([i]), VecDeque::from([MultipleEnds::new(&vec![HashSet::from([VecDeque::from([10])])])])))
+        .map(|&i| s.add((), VecDeque::from([i]), VecDeque::from([MultipleEnds::new_as_all_zero(vec![VecDeque::from([10])])])))
         .collect::<Vec<_>>();
     
     let mut output = Data{ seats, agents: HashMap::new()};
@@ -164,8 +164,8 @@ fn test1_5() {
     let (map, mut s, seats) = testdata1(3);
 
     let i0 = s.add((), VecDeque::from([1, 0, 11]), VecDeque::from([
-        MultipleEnds::new(&vec![HashSet::from([VecDeque::from([2, 12, 13])])]),
-        MultipleEnds::new(&vec![HashSet::from([VecDeque::from([1, 0, 11])])]),
+        MultipleEnds::new_as_all_zero(vec![VecDeque::from([2, 12, 13])]),
+        MultipleEnds::new_as_all_zero(vec![VecDeque::from([1, 0, 11])]),
     ]));
 
     let idxs = vec![i0];
@@ -187,13 +187,13 @@ fn test1_6() {
     let (map, mut s, seats) = testdata1(3);
 
     let i0 = s.add((), VecDeque::from([1, 0, 11]), VecDeque::from([
-        MultipleEnds::new(&vec![HashSet::from([VecDeque::from([2, 12, 13])])]),
-        MultipleEnds::new(&vec![HashSet::from([VecDeque::from([1, 0, 11])])]),
+        MultipleEnds::new_as_all_zero(vec![VecDeque::from([2, 12, 13])]),
+        MultipleEnds::new_as_all_zero(vec![VecDeque::from([1, 0, 11])]),
     ]));
 
     let i1 = s.add((), VecDeque::from([6, 5]), VecDeque::from([
-        MultipleEnds::new(&vec![HashSet::from([VecDeque::from([13, 12])])]),
-        MultipleEnds::new(&vec![HashSet::from([VecDeque::from([11, 10])])]),
+        MultipleEnds::new_as_all_zero(vec![VecDeque::from([13, 12])]),
+        MultipleEnds::new_as_all_zero(vec![VecDeque::from([11, 10])]),
     ]));
 
     let idxs = vec![i0, i1];
@@ -207,4 +207,32 @@ fn test1_6() {
     }
 
     output_file(&"test1-6.json".to_string(), &output);
+}
+
+#[test]
+fn test1_7() {
+
+    let (map, mut s, seats) = testdata1(3);
+
+    let i0 = s.add((), VecDeque::from([4, 3]), VecDeque::from([
+        MultipleEnds::new(HashMap::from([(VecDeque::from([2, 12]), 2), (VecDeque::from([10, 9]), 0)])),
+        MultipleEnds::new_as_all_zero(vec![VecDeque::from([4, 3])]),
+    ]));
+
+    let i1 = s.add((), VecDeque::from([7, 6]), VecDeque::from([
+        MultipleEnds::new(HashMap::from([(VecDeque::from([2, 12]), 3), (VecDeque::from([2, 1]), 0)])),
+        MultipleEnds::new_as_all_zero(vec![VecDeque::from([7, 6])]),
+    ]));
+
+    let idxs = vec![i0, i1];
+    
+    let mut output = Data{ seats, agents: HashMap::new()};
+
+    output_data(&s, &map, 0, &mut output, &idxs);
+    for t in 1..=15 {
+        s.step();
+        output_data(&s, &map, t, &mut output, &idxs)
+    }
+
+    output_file(&"test1-7.json".to_string(), &output);
 }
