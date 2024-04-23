@@ -51,9 +51,11 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         return Idx::new(self.agents.keys().max().unwrap().value() + U::one())
     }
 
-    pub fn step(&mut self) where <M as Map<U, T>>::SI: Debug, <M as Map<U, T>>::Node: Debug {
+    pub fn remove(&mut self, idx: Idx<T, U>) -> bool {
+        todo!()
+    }
 
-        // println!("time: {:?}", self.time);
+    pub fn step(&mut self) where <M as Map<U, T>>::SI: Debug, <M as Map<U, T>>::Node: Debug {
 
         // seat の解放
         while let Some(d) = self.durations.peek() {
@@ -63,22 +65,29 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
 
             let d = self.durations.pop().unwrap();
             let i = d.index();
-            let s = d.seat();
-            // println!("  {:?}", s);
-            self.map[s].remove(i);
+            self.map[d.seat()].remove(i);
         }
 
         for &idx in &self.queue {
             let Some(a) = self.agents.get_mut(&idx) else { continue };
-            if let AgentState::NotPlaced = a.state() {
-                if self.map
-                    .seats(a.current(), a.kind())
-                    .all(|n| self.map[n].is_empty_for(idx)) {
+            match a.state() {
+                AgentState::NotPlaced => {
+                    let can_place = self.map
+                        .seats(a.current(), a.kind())
+                        .all(|n| self.map[n].is_empty_for(idx));
+                    if can_place {
                         self.map
                             .seats(a.current(), a.kind())
                             .for_each(|n| self.map[n].add(idx));
                         a.place();
                     }
+                },
+                AgentState::Moving { nexts } => {
+                    if nexts[0].1 <= self.time {
+                        a.arrives();
+                    }
+                },
+                _ => {},
             }
         }
 
@@ -86,22 +95,10 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         while let Some(idx) = self.queue.pop_front() {
             let Some(a) = self.agents.get_mut(&idx) else { continue };
 
-            let success = match a.state() {
-                AgentState::NotPlaced => false,
-                AgentState::Stop => {
-                    self.set_nexts(idx)
-                },
-                AgentState::Moving { nexts } => {
-                    if nexts[0].1 <= self.time {
-                        a.arrives();
-                        if let AgentState::Stop = a.state() {
-                            self.set_nexts(idx);
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                },
+            let success = if let AgentState::Stop = a.state() {
+                self.set_nexts(idx)
+            } else {
+                false
             };
 
             if success {
@@ -117,7 +114,6 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
     }
 
     fn set_nexts(&mut self, idx: Idx<T, U>) -> bool where <M as Map<U, T>>::SI: Debug, <M as Map<U, T>>::Node: Debug {
-        // println!("  {:?}", idx);
         let Some(a) = self.agents.get_mut(&idx) else {
             return false
         };
@@ -135,15 +131,8 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         );
 
         let Some(path) = path else {
-            // println!("   path: not found");
             return false
         };
-        // println!("   path: len = {}", path.len());
-
-        for i in 0..path.len() {
-            let p = &path[i];
-            // println!("  {:?} {:?}", p.0, p.1);
-        }
         
         a.departs(path.iter().map(|(n, c, _)| (n.clone(), *c + self.time)));
 
@@ -172,7 +161,6 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         }
 
         for (s, t) in seats {
-            // println!("  {:?} {:?}", s, t);
             self.map[s.clone()].add(idx);
             if let Some(t) = t {
                 self.durations.push(Duration::new(t, idx, s));
