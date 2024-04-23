@@ -88,7 +88,9 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
 
             let success = match a.state() {
                 AgentState::NotPlaced => false,
-                AgentState::Stop => self.set_nexts(idx),
+                AgentState::Stop => {
+                    self.set_nexts(idx)
+                },
                 AgentState::Moving { nexts } => {
                     if nexts[0].1 <= self.time {
                         a.arrives();
@@ -137,8 +139,13 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
             return false
         };
         // println!("   path: len = {}", path.len());
+
+        for i in 0..path.len() {
+            let p = &path[i];
+            // println!("  {:?} {:?}", p.0, p.1);
+        }
         
-        a.departs(path.iter().map(|(n, c, _)| (n.clone(), *c)));
+        a.departs(path.iter().map(|(n, c, _)| (n.clone(), *c + self.time)));
 
         let len = path.len();
 

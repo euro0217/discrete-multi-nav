@@ -11,7 +11,7 @@ pub(crate) struct TestMap {
 impl TestMap {
     pub(crate) fn new(nodes: Vec<TestNode>) -> Self {
         for n in &nodes {
-            for &i in n.nexts() {
+            for &(i, _) in n.nexts() {
                 if i >= nodes.len() {
                     panic!("index out of bound: {}", i)
                 }
@@ -43,18 +43,18 @@ impl Map<u32> for TestMap {
             .nexts()
             .iter()
             .enumerate()
-            .map(|(k, &j)| {
+            .map(|(k, &(j, l))| {
                 let mut js = idxs.clone();
                 js.push_front(j);
                 js.pop_back();
-                (k, js, 1)
+                (k, js, l)
             })
             .collect::<Vec<_>>()
             .into_iter()
     }
 
     fn successor(&self, idxs: &Self::Node, _: &(), &j: &Self::I) -> Self::Node {
-        let j = self.nodes[idxs[0]].nexts()[j];
+        let (j, _) = self.nodes[idxs[0]].nexts()[j];
         let mut js = idxs.clone();
         js.push_front(j);
         js.pop_back();

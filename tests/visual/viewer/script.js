@@ -16,7 +16,7 @@ selector.onchange = (e) => {
         const agents = Object.keys(loaddata.agents);
 
         const arrows = loaddata.seats.flatMap(s0 => (
-            s0.nexts.flatMap(i => {
+            s0.nexts.flatMap(([i, l]) => {
                 const s1 = loaddata.seats[i]
                 return [...getArrow(s0.x, s0.y, s1.x, s1.y), [null, null]]
             })
@@ -60,7 +60,8 @@ selector.onchange = (e) => {
 
         const layout = {
             updatemenus,
-            yaxis: { scaleanchor: 'x'},
+            xaxis: nogrid,
+            yaxis: { ...nogrid, scaleanchor: 'x'},
             sliders: [{
                 pad: {l: 130, t: 55},
                 currentvalue: { visible: true, prefix: 't = ', xanchor: 'right', font: {size: 15}},
@@ -170,3 +171,5 @@ const getArrow = (x0, y0, x1, y1) => {
         [x0 + nx * w, y0 + ny * w],
     ]
 }
+
+const nogrid = { showgrid: false, zeroline: false, showline: false, showticklabels: false };
