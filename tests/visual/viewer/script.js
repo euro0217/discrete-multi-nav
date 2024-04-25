@@ -136,6 +136,12 @@ const getSeats = (data, agents, t) => {
 const getAgents = (data, agents, t) => 
     agents.map(i => {
         const a = data.agents[i][t];
+        if (!a) {
+            return {
+                opacity: 0
+            }
+        }
+
         const shape = a.shape;
         return {
             x: shape.map(p => p !== null ? p[0] : null),

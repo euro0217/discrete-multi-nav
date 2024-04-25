@@ -52,7 +52,8 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
     }
 
     pub fn remove(&mut self, idx: Idx<T, U>) -> bool {
-        todo!()
+        let Some(a) = self.agents.get_mut(&idx) else { return false };
+        a.remove()
     }
 
     pub fn step(&mut self) where <M as Map<U, T>>::SI: Debug, <M as Map<U, T>>::Node: Debug {
@@ -96,7 +97,16 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
             let Some(a) = self.agents.get_mut(&idx) else { continue };
 
             let success = if let AgentState::Stop = a.state() {
-                self.set_nexts(idx)
+                if a.removing() {
+                    for s in self.map.seats(a.current(), a.kind()) {
+                        self.map[s].remove(idx);
+                    }
+                    self.agents.remove(&idx);
+                    continue;
+                } else {
+                    self.set_nexts(idx);
+                }
+                true
             } else {
                 false
             };

@@ -83,16 +83,71 @@ fn test2_2() {
     let i3 = s.add((), VecDeque::from([3]), VecDeque::from([MultipleEnds::new_as_all_zero(vec![VecDeque::from([19])])]));
     let i4 = s.add((), VecDeque::from([0]), VecDeque::from([MultipleEnds::new_as_all_zero(vec![VecDeque::from([16])])]));
     let i5 = s.add((), VecDeque::from([6]), VecDeque::from([MultipleEnds::new_as_all_zero(vec![VecDeque::from([13])])]));
+    let i6 = s.add((), VecDeque::from([6]), VecDeque::from([MultipleEnds::new_as_all_zero(vec![VecDeque::from([13])])]));
 
-    let idxs = vec![i0, i1, i2, i3, i4, i5];
+    let idxs = vec![i0, i1, i2, i3, i4, i5, i6];
     
     let mut output = Data{ seats, agents: HashMap::new() };
 
     output_data(&s, &map, 0, &mut output, &idxs);
-    for t in 1..=22 {
+    for t in 1..=27 {
         s.step();
-        output_data(&s, &map, t, &mut output, &idxs)
+        output_data(&s, &map, t, &mut output, &idxs);
+
+        if t == 1 {
+            s.remove(i5);
+        } else if t == 10 {
+            s.remove(i1);
+        } else if t == 20 {
+            s.remove(i3);
+        }
     }
 
     output_file(&"test2-2.json".to_string(), &output);
+}
+
+#[test]
+fn test2_3() {
+
+    let (map, mut s, seats) = testdata2(3);
+
+    let mut idxs = vec![];
+
+    let mut output = Data{ seats, agents: HashMap::new() };
+
+    let mut routes = VecDeque::from([
+        (0, 16),
+        (6, 13),
+        (3, 13),
+        (6, 16),
+        (3, 16),
+        (0, 19),
+        (6, 19),
+        (3, 19),
+        (0, 13),
+        (6, 16),
+        (6, 13),
+        (0, 19),
+        (3, 16),
+        (0, 16),
+    ]);
+
+    output_data(&s, &map, 0, &mut output, &idxs);
+
+    let mut j = 0;
+    for t in 1..=60 {
+        if !routes.is_empty() && t % 2 == 1 {
+            let (from, to) = routes.pop_front().unwrap();
+            let i = s.add((), VecDeque::from([from]), VecDeque::from([MultipleEnds::new_as_all_zero(vec![VecDeque::from([to])])]));
+            idxs.push(i);
+        }
+        if t > 20 && t % 3 == 0 {
+            s.remove(idxs[j]);
+            j += 1;
+        }
+        s.step();
+        output_data(&s, &map, t, &mut output, &idxs);
+    }
+
+    output_file(&"test2-3.json".to_string(), &output);
 }

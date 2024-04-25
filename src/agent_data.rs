@@ -8,17 +8,18 @@ pub struct AgentData<N: Node, C: Cost, T = ()>
     current: N,
     state: AgentState<N, C>,
     destinations: VecDeque<MultipleEnds<N, C>>,
+    removing: bool,
 }
 
 impl<T: Default, N: Node, C: Cost> AgentData<N, C, T> {
     pub fn new_default(current: N, destinations: VecDeque<MultipleEnds<N, C>>) -> Self {
-        Self { kind: T::default(), current, state: AgentState::NotPlaced, destinations }
+        Self { kind: T::default(), current, state: AgentState::NotPlaced, destinations, removing: false }
     }
 }
 
 impl<T, N: Node, C: Cost> AgentData<N, C, T> {
     pub fn new(kind: T, current: N, destinations: VecDeque<MultipleEnds<N, C>>) -> Self {
-        Self { kind, current, state: AgentState::NotPlaced, destinations }
+        Self { kind, current, state: AgentState::NotPlaced, destinations, removing: false }
     }
 
     // pub fn agent(&self) -> &A { &self.agent }
@@ -28,6 +29,15 @@ impl<T, N: Node, C: Cost> AgentData<N, C, T> {
     pub fn next_destinations(&self) -> Option<&MultipleEnds<N, C>> { self.destinations.get(0) }
     pub fn all_destinations(&self) -> &VecDeque<MultipleEnds<N, C>> { &self.destinations }
     pub fn destinations_mut(&mut self) -> &mut VecDeque<MultipleEnds<N, C>> { &mut self.destinations }
+    pub fn removing(&self) -> bool { self.removing }
+
+    pub(crate) fn remove(&mut self) -> bool {
+        if self.removing {
+            return false
+        }
+        self.removing = true;
+        return true
+    }
     
     pub(crate) fn place(&mut self) {
         self.state = AgentState::Stop;

@@ -23,7 +23,7 @@ fn output_file(filename: &String, output: &Data) {
 fn output_data<const N: usize>(s: &Simulator<TestMap, u32>, map: &[(u32, u32, Vec<(usize, u32)>); N], t: i32, output: &mut Data, idxs: &Vec<Idx<(), u32>>) {
 
     for i0 in idxs {
-        let a0 = s.agent(*i0).unwrap();
+        let Some(a0) = s.agent(*i0) else { continue };
 
         let mut shape = vec![];
         for &i in a0.current() {
