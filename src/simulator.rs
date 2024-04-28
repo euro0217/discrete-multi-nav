@@ -143,7 +143,7 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         let Some(path) = path else {
             return false
         };
-        
+
         a.departs(path.iter().map(|(n, c, _)| (n.clone(), *c + self.time)));
 
         let len = path.len();
@@ -154,8 +154,10 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
             Self::add_seats(&mut seats, s, if len > 0 { Some(c0) } else { None });
         }
 
+        let n0 = a.current();
+
         for (j, (n, c, i)) in path.into_iter().enumerate() {
-            for (s, d) in self.map.seats_between(&n, a.kind(), &i) {
+            for (s, d) in self.map.seats_between(&n0, a.kind(), &i) {
                 Self::add_seats(&mut seats, s, Some(c0 + d));
             }
             if j < len - 1 {

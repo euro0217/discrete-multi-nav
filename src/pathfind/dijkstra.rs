@@ -42,9 +42,8 @@ pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS, T>(
     };
 
     let p: Option<Path<N, RCost<C>, T>> = dijkstra_for_multiple_ends(&start, ends, successors, |c| RCost::Add { dc: c, max: max_reservation_cost });
-
-    // todo!();
-        p.and_then(|path| Some(Path::new(
+    p.and_then(|path|
+        Some(Path::new(
             path.into_iter()
                 .take_while(|(_, c, _)| {
                     if let RCost::Cost { cost: _, r: _, blocked } = c {
@@ -61,7 +60,8 @@ pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS, T>(
                     }
                 })
                 .collect::<Vec<(N, C, T)>>()
-        )))
+        ))
+    )
 }
 
 pub fn dijkstra_for_multiple_ends<N, C, MC, FN, IN, T, FC>(start: &N, ends: &MultipleEnds<N, MC>, mut successors: FN, converter: FC)
