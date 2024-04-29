@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use pathfinding::directed::dijkstra::dijkstra;
 
 use crate::pathfind::common::RCost;
@@ -14,9 +12,9 @@ pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS, T>(
     max_reservation_cost: C
 )
 -> Option<Path<N, C, T>> where
-    N: Node + Debug,
+    N: Node ,
     C: Cost,
-    S: Seat + Debug,
+    S: Seat,
     FN: FnMut(&N) -> IN,
     IN: IntoIterator<Item = (N, C, IS, T)>,
     IS: Iterator<Item = S>,
@@ -26,12 +24,10 @@ pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS, T>(
     if ends.is_empty() { return None }
 
     let successors = |n: &N| {
-        // println!("  {:?}: ", n);
         successors(n)
             .into_iter()
             .map(|(m, dc, ss, t)| {
                 if ss.into_iter().all(|s| {
-                    // println!("    {:?} {:?}", m, s);
                     seats_reservation(&s)
                 }) {
                     (m, RCost::Add { dc, max: max_reservation_cost }, t)

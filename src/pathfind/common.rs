@@ -23,6 +23,7 @@ impl<N: Node, C: Cost> MultipleEnds<N, C> {
 
     pub fn is_empty(&self) -> bool { self.ends.is_empty() }
     pub fn end_index(&self, node: &N) -> Option<C> { self.ends.get(node).copied() }
+    pub fn ends(&self) -> &HashMap<N, C> { &self.ends }
 }
 
 #[derive(Debug)]

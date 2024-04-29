@@ -149,16 +149,17 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         let len = path.len();
 
         let mut seats = HashMap::new();
-        let mut c0 = self.time + M::C::one();
+        let mut c0 = self.time;
         for s in self.map.seats(a.current(), a.kind()) {
-            Self::add_seats(&mut seats, s, if len > 0 { Some(c0) } else { None });
+            Self::add_seats(&mut seats, s, if len > 0 { Some(c0 + M::C::one()) } else { None });
         }
 
-        let n0 = a.current();
+        let mut n0 = a.current().clone();
 
         for (j, (n, c, i)) in path.into_iter().enumerate() {
             for (s, d) in self.map.seats_between(&n0, a.kind(), &i) {
                 Self::add_seats(&mut seats, s, Some(c0 + d));
+                n0 = n.clone();
             }
             if j < len - 1 {
                 for s in self.map.seats(&n, a.kind()) {

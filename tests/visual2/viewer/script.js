@@ -23,18 +23,10 @@ selector.onchange = (e) => {
         );
 
         const data = [
-            // {
-            //     x: arrows.map(a => a[0]),
-            //     y: arrows.map(a => a[1]),
-            //     fill: 'toself',
-            //     mode: 'none',
-            //     fillcolor: '#404040',
-            //     name: 'path',
-            // },
-            // ...getSeats(loaddata, agents, 0),
             { x: [-0.5, -0.5, nx - 0.5, nx - 0.5, -0.5], y: [-0.5, ny - 0.5, ny - 0.5, -0.5, -0.5], mode: 'lines', line: { color: '#d0d0d0' } },
             ...getSeats(loaddata, agents, 0, nx, ny),
             ...getAgents(loaddata, agents, 0),
+            ...getDestinations(loaddata, agents, 0),
         ];
 
         const frames = [...Array(tmax).keys()]
@@ -44,6 +36,7 @@ selector.onchange = (e) => {
                     {},
                     ...getSeats(loaddata, agents, t, nx, ny),
                     ...getAgents(loaddata, agents, t),
+                    ...getDestinations(loaddata, agents, t),
                 ]
             }))
 
@@ -140,6 +133,11 @@ const getSeats = (data, agents, t, nx, ny) => {
     return agents.map(i => map[i] || empty(i))
 }
 
+const l = 1 / 2 / Math.sqrt(5)
+const n = 12
+const thetas = Array.from({length: n + 1}, (_, i) => 2 * Math.PI * i / n)
+const coss = thetas.map(Math.cos); sins = thetas.map(Math.sin);
+
 const getAgents = (data, agents, t) => 
     agents.map(i => {
         const a = data[t].agents[i];
@@ -148,11 +146,12 @@ const getAgents = (data, agents, t) =>
                 opacity: 0
             }
         }
-        const { x, y, state } = a;
-        const l = 0.3;
+        const { x: x0, y: y0, state, next } = a;
+        const [x1, y1, r] = next || [x0, y0, 0]
+        const x = (1 - r) * x0 + r * x1; y = (1 - r) * y0 + r * y1;
         return {
-            x: [x + l, x, x - l, x, x + l],
-            y: [y, y + l, y, y - l, y],
+            x: coss.map(t => x + t * l),
+            y: sins.map(t => y + t * l),
             fill: 'toself',
             fillcolor: cyclic_color(i, 200),
             fillpattern: { shape: state === 'n' ? 'x' : '' },
@@ -166,23 +165,37 @@ const getAgents = (data, agents, t) =>
         }
     });
 
-const getArrow = (x0, y0, x1, y1) => {
-    const w = 0.015, h = 0.2, hw = 0.06;
+const dl = 0.15
 
-    const dx = x1 - x0; dy = y1 - y0;
-    const l = Math.sqrt(dx * dx + dy * dy);
-    const tx = dx / l; ty = dy / l;
-    const nx = -ty; ny = tx;
-
-    return [
-        [x0 - nx * w, y0 - ny * w],
-        [x0 - nx * w + tx * (l - h), y0 - ny * w + ty * (l - h)],
-        [x0 - nx * hw + tx * (l - h), y0 - ny * hw + ty * (l - h)],
-        [x1, y1],
-        [x0 + nx * hw + tx * (l - h), y0 + ny * hw + ty * (l - h)],
-        [x0 + nx * w + tx * (l - h), y0 + ny * w + ty * (l - h)],
-        [x0 + nx * w, y0 + ny * w],
-    ]
-}
+const getDestinations = (data, agents, t) =>
+    agents.map(i => {
+        const a = data[t].agents[i];
+        if (!a) {
+            return {
+                opacity: 0
+            }
+        }
+        const { dest } = a;
+        if (!dest || dest.length === 0) {
+            return {
+                opacity: 0
+            }
+        }
+        
+        const xs = []; ys = [];
+        dest.forEach(([x, y]) => {
+            xs.push(...[x + dl, x, x - dl, x, x + dl, null])
+            ys.push(...[y, y + dl, y, y - dl, y, null])
+        })
+        return {
+            x: xs, y: ys,
+            fill: 'toself',
+            fillcolor: cyclic_color(i, 400),
+            line: { color: cyclic_color(i, 700) },
+            mode: 'lines',
+            name: `agent ${i} destination`,
+            opacity: 0.8,
+        }
+    });
 
 const nogrid = { showgrid: false, zeroline: false, showline: false, showticklabels: false };
