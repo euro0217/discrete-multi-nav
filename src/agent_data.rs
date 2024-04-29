@@ -22,7 +22,6 @@ impl<T, N: Node, C: Cost> AgentData<N, C, T> {
         Self { kind, current, state: AgentState::NotPlaced, destinations, removing: false }
     }
 
-    // pub fn agent(&self) -> &A { &self.agent }
     pub fn kind(&self) -> &T { &self.kind }
     pub fn current(&self) -> &N { &self.current }
     pub fn state(&self) -> &AgentState<N, C> { &self.state }

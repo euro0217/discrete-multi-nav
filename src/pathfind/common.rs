@@ -79,26 +79,6 @@ impl<N: Node, C: Cost, T: Clone> Hash for NodeCost<N, C, T> {
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub(crate) enum NodeDest<N: Node> { Node(N), Dest }
 
-// #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-// pub(crate) struct CostW<C: Zero + Ord + Copy> { i: usize, c: C }
-
-// impl<C: Zero + Ord + Copy> CostW<C> {
-//     pub(crate) fn new(i: usize, c: C) -> Self { Self { i, c } }
-// }
-
-// impl<C: Zero + Ord + Copy> Zero for CostW<C> {
-//     fn zero() -> Self { CostW { i: 0, c: C::zero() }}
-//     fn is_zero(&self) -> bool { self.i == 0 && self.c == C::zero() }
-// }
-
-// impl<C: Zero + Ord + Copy> Add<Self> for CostW<C> {
-//     type Output = Self;
-
-//     fn add(self, rhs: Self) -> Self::Output {
-//         Self { i: self.i + rhs.i, c: self.c + rhs.c }
-//     }
-// }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RCost<C: Cost> {
     Cost { cost: C, r: C, blocked: bool },

@@ -1,4 +1,4 @@
-use std::{collections::{BTreeMap, BinaryHeap, HashMap, VecDeque}, fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{collections::{BTreeMap, BinaryHeap, HashMap, VecDeque}, hash::Hash, marker::PhantomData};
 
 use num_traits::One;
 
@@ -56,7 +56,7 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         a.remove()
     }
 
-    pub fn step(&mut self) where <M as Map<U, T>>::SI: Debug, <M as Map<U, T>>::Node: Debug {
+    pub fn step(&mut self) {
 
         // seat の解放
         while let Some(d) = self.durations.peek() {
@@ -123,7 +123,7 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         self.time = self.time + M::C::one();
     }
 
-    fn set_nexts(&mut self, idx: Idx<T, U>) -> bool where <M as Map<U, T>>::SI: Debug, <M as Map<U, T>>::Node: Debug {
+    fn set_nexts(&mut self, idx: Idx<T, U>) -> bool {
         let Some(a) = self.agents.get_mut(&idx) else {
             return false
         };

@@ -205,3 +205,37 @@ fn test4() {
 
     output_file(&"test4.json".to_string(), &output);
 }
+
+#[test]
+fn test5() {
+    let mut s = Simulator::new(0, TestMap::new(8, 5), 5);
+
+    let i0 = s.add((), (0, 0), VecDeque::from([
+        MultipleEnds::new_as_all_zero(vec![(7, 4)]),
+        MultipleEnds::new_as_all_zero(vec![(0, 0)]),
+    ]));
+    let i1 = s.add((), (0, 4), VecDeque::from([
+        MultipleEnds::new_as_all_zero(vec![(7, 0)]),
+        MultipleEnds::new_as_all_zero(vec![(0, 4)]),
+    ]));
+    let i2 = s.add((), (7, 4), VecDeque::from([
+        MultipleEnds::new_as_all_zero(vec![(0, 0)]),
+        MultipleEnds::new_as_all_zero(vec![(7, 4)]),
+    ]));
+    let i3 = s.add((), (7, 0), VecDeque::from([
+        MultipleEnds::new_as_all_zero(vec![(0, 4)]),
+        MultipleEnds::new_as_all_zero(vec![(7, 0)]),
+    ]));
+    let idxs = vec![i0, i1, i2, i3];
+
+    let mut output = vec![];
+
+    output.push(output_data(&s, &idxs, 0));
+
+    for t in 1..=60 {
+        s.step();
+        output.push(output_data(&s, &idxs, t));
+    }
+
+    output_file(&"test5.json".to_string(), &output);
+}
