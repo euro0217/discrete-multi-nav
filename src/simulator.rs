@@ -2,7 +2,7 @@ use std::{collections::{BTreeMap, BinaryHeap, HashMap, VecDeque}, hash::Hash, ma
 
 use num_traits::One;
 
-use crate::{agent_data::{AgentData, AgentState}, duration::Duration, index::index::Idx, map::Map, pathfind::{common::MultipleEnds, dijkstra::dijkstra_for_next_reservation}, seat::{AgentIdxType, Seat}};
+use crate::{agent_data::{AgentData, AgentState}, duration::Duration, index::index::Idx, map::{self, Map}, pathfind::{common::MultipleEnds, dijkstra::dijkstra_for_next_reservation}, seat::{AgentIdxType, Seat}};
 
 
 pub struct Simulator<M: Map<U, T>, U: AgentIdxType + Ord, T = ()> 
@@ -36,6 +36,23 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
     pub fn agent_destination_mut(&mut self, idx: Idx<T, U>) -> Option<&mut VecDeque<MultipleEnds<<M as Map<U, T>>::Node, <M as Map<U, T>>::C>>> {
         self.agents.get_mut(&idx)
             .and_then(|a| Some(a.destinations_mut()))
+    }
+
+    pub fn movement_of(&self, idx: Idx<T, U>, index: M::I) -> Option<map::Successor<M, U, T>> {
+        let Some(a) = self.agent(idx) else { return None };
+
+        let c = if let AgentState::Moving { nexts } = a.state() {
+            &nexts[nexts.len() - 1].0
+        } else {
+            a.current()
+        };
+        Some(self.map.suc(c, a.kind(), &index))
+    }
+
+    pub fn is_empty_for(&self, idx: Idx<T, U>, s: &map::Successor<M, U, T>) -> bool {
+        s.seats()
+            .iter()
+            .all(|(s, _)| self.map[s.clone()].is_empty_for(idx))
     }
 
     pub fn add(&mut self, agent: T, node: M::Node, destination: VecDeque<MultipleEnds<M::Node, M::C>>) -> Idx<T, U> {

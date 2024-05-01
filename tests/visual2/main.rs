@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque}, fs::File, path::Path};
+use std::{collections::{HashMap, HashSet, VecDeque}, fs::File, path::Path};
 
 use discrete_multi_nav::{agent_data::AgentState, index::index::Idx, pathfind::common::MultipleEnds, simulator::Simulator};
 use map::TestMap;
@@ -199,11 +199,77 @@ fn test4() {
     output.push(output_data(&s, &idxs, 0));
 
     for t in 1..=148 {
+        if t == 60 {
+            suc_test(&s, &idxs);
+        }
         s.step();
         output.push(output_data(&s, &idxs, t));
     }
 
     output_file(&"test4.json".to_string(), &output);
+}
+
+
+fn suc_test(sim: &Simulator<TestMap, u32>, idxs: &Vec<Idx<(), u32>>) {
+    let m = sim.movement_of(idxs[0], 3).unwrap();
+    assert_eq!(m.node(), &(1, 4));
+    let s = m.seats()
+        .into_iter()
+        .copied()
+        .collect::<HashSet<_>>();
+    let expected = HashSet::from([
+        ((3, 3), Some(2)),
+        ((2, 3), Some(3)),
+        ((2, 4), Some(4)),
+        ((1, 4), None),
+    ]);
+    assert_eq!(s, expected);
+    assert!(sim.is_empty_for(idxs[0], &m));
+
+    let m = sim.movement_of(idxs[0], 7).unwrap();
+    assert_eq!(m.node(), &(5, 2));
+    let s = m.seats()
+        .into_iter()
+        .copied()
+        .collect::<HashSet<_>>();
+    let expected = HashSet::from([
+        ((3, 3), Some(2)),
+        ((4, 3), Some(3)),
+        ((4, 2), Some(4)),
+        ((5, 2), None),
+    ]);
+    assert_eq!(s, expected);
+    assert!(!sim.is_empty_for(idxs[0], &m));
+
+    let m = sim.movement_of(idxs[1], 1).unwrap();
+    assert_eq!(m.node(), &(5, 3));
+    let s = m.seats()
+        .into_iter()
+        .copied()
+        .collect::<HashSet<_>>();
+    let expected = HashSet::from([
+        ((4, 1), Some(2)),
+        ((4, 2), Some(3)),
+        ((5, 2), Some(4)),
+        ((5, 3), None),
+    ]);
+    assert_eq!(s, expected);
+    assert!(!sim.is_empty_for(idxs[1], &m));
+
+    let m = sim.movement_of(idxs[1], 4).unwrap();
+    assert_eq!(m.node(), &(2, 0));
+    let s = m.seats()
+        .into_iter()
+        .copied()
+        .collect::<HashSet<_>>();
+    let expected = HashSet::from([
+        ((4, 1), Some(2)),
+        ((3, 1), Some(3)),
+        ((3, 0), Some(4)),
+        ((2, 0), None),
+    ]);
+    assert_eq!(s, expected);
+    assert!(sim.is_empty_for(idxs[1], &m));
 }
 
 #[test]
