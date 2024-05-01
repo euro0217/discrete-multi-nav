@@ -33,6 +33,11 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
     pub fn agents(&self) -> &BTreeMap<Idx<T, U>, AgentData<M::Node, M::C, T>> { &self.agents }
     pub fn agent(&self, idx: Idx<T, U>) -> Option<&AgentData<M::Node, M::C, T>> { self.agents.get(&idx) }
 
+    pub fn agent_destination_mut(&mut self, idx: Idx<T, U>) -> Option<&mut VecDeque<MultipleEnds<<M as Map<U, T>>::Node, <M as Map<U, T>>::C>>> {
+        self.agents.get_mut(&idx)
+            .and_then(|a| Some(a.destinations_mut()))
+    }
+
     pub fn add(&mut self, agent: T, node: M::Node, destination: VecDeque<MultipleEnds<M::Node, M::C>>) -> Idx<T, U> {
         // node のバリデーション
         let idx = self.new_idx();

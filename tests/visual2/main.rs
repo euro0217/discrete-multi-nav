@@ -232,7 +232,15 @@ fn test5() {
 
     output.push(output_data(&s, &idxs, 0));
 
-    for t in 1..=60 {
+    for t in 1..=40 {
+        s.step();
+        output.push(output_data(&s, &idxs, t));
+    }
+
+    s.agent_destination_mut(i3).unwrap()
+        .push_front(MultipleEnds::new_as_all_zero(vec![(4, 2)]));
+
+    for t in 41..=58 {
         s.step();
         output.push(output_data(&s, &idxs, t));
     }
