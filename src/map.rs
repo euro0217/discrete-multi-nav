@@ -5,38 +5,38 @@ use num_traits::One;
 use crate::{pathfind::common::{Cost, Node, Seat as TSeat}, seat::{AgentIdxType, Seat}};
 
 
-pub trait Map<U: AgentIdxType, T = ()>: IndexMut<Self::SI, Output = Self::Seat> {
-    type SI: TSeat;
+pub trait Map<U: AgentIdxType, T = ()>: IndexMut<Self::SeatIndex, Output = Self::Seat> {
+    type SeatIndex: TSeat;
     type Seat: Seat<T, U>;
     type Node: Node;
-    type C: Cost + One;
+    type Cost: Cost + One;
     type I: Eq + Hash + Clone + Default;
-    type SIter: Iterator<Item = Self::SI>;
-    type SCIter: Iterator<Item = (Self::I, Self::Node, Self::C)>;
-    type SBIter: Iterator<Item = (Self::SI, Self::C)>;
+    type SIter: Iterator<Item = Self::SeatIndex>;
+    type SCIter: Iterator<Item = (Self::I, Self::Node, Self::Cost)>;
+    type SBIter: Iterator<Item = (Self::SeatIndex, Self::Cost)>;
 
     fn seats(&self, n: &Self::Node, t: &T) -> Self::SIter;
     fn successors(&self, n: &Self::Node, t: &T) -> Self::SCIter;
-    fn successor(&self, n: &Self::Node, t: &T, i: &Self::I) -> Self::Node;
+    fn successor(&self, n: &Self::Node, t: &T, i: &Self::I) -> Option<Self::Node>;
     fn seats_between(&self, n: &Self::Node, t: &T, i: &Self::I) -> Self::SBIter;
 
-    fn suc(&self, n: &Self::Node, t: &T, i: &Self::I) -> Successor<Self, U, T> where Self: Sized {
-        let node = self.successor(n, t, i);
+    fn movement(&self, n: &Self::Node, t: &T, i: &Self::I) -> Option<Movement<Self, U, T>> where Self: Sized {
+        let node = self.successor(n, t, i)?;
         let seats_between = self.seats_between(n, t, i)
             .map(|(s, c)| (s, Some(c)));
         let seats = self.seats(&node, t)
             .map(|s| (s, None));
-        Successor { node, seats: seats_between.chain(seats).collect::<Vec<_>>() }
+        Some(Movement { node, seats: seats_between.chain(seats).collect::<Vec<_>>() })
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Successor<M: Map<U, T>, U: AgentIdxType, T> {
+pub struct Movement<M: Map<U, T>, U: AgentIdxType, T> {
     node: M::Node,
-    seats: Vec<(M::SI, Option<M::C>)>
+    seats: Vec<(M::SeatIndex, Option<M::Cost>)>
 }
 
-impl<M: Map<U, T>, U: AgentIdxType, T> Successor<M, U, T> {
+impl<M: Map<U, T>, U: AgentIdxType, T> Movement<M, U, T> {
     pub fn node(&self) -> &M::Node { &self.node }
-    pub fn seats(&self) -> &Vec<(M::SI, Option<M::C>)> { &self.seats }
+    pub fn seats(&self) -> &Vec<(M::SeatIndex, Option<M::Cost>)> { &self.seats }
 }

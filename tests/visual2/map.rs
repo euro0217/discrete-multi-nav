@@ -17,7 +17,7 @@ impl TestMap {
 }
 
 impl Map<u32> for TestMap {
-    type C = u32;
+    type Cost = u32;
 
     // y
     // ^
@@ -28,13 +28,13 @@ impl Map<u32> for TestMap {
     //   . 5 . 6 .
     //           -> x
     type I = usize;
-    type SI = (usize, usize);
+    type SeatIndex = (usize, usize);
     type Seat = TestNode;
     type Node = (usize, usize);
     
-    type SIter = IntoIter<Self::SI>;
-    type SCIter = IntoIter<(Self::I, Self::Node, Self::C)>;
-    type SBIter = IntoIter<(Self::SI, Self::C)>;
+    type SIter = IntoIter<Self::SeatIndex>;
+    type SCIter = IntoIter<(Self::I, Self::Node, Self::Cost)>;
+    type SBIter = IntoIter<(Self::SeatIndex, Self::Cost)>;
 
     fn seats(&self, n: &Self::Node, _: &()) -> Self::SIter {
         vec![*n].into_iter()
@@ -56,9 +56,14 @@ impl Map<u32> for TestMap {
             .into_iter()
     }
 
-    fn successor(&self, &(x, y): &Self::Node, _: &(), &i: &Self::I) -> Self::Node {
+    fn successor(&self, &(x, y): &Self::Node, _: &(), &i: &Self::I) -> Option<Self::Node> {
         let (dx, dy) = DXYS[i];
-        ((x as i32 + dx) as usize, (y as i32 + dy) as usize)
+        let (x, y) = ((x as i32 + dx), (y as i32 + dy));
+        if x >= 0 && y >= 0 {
+            Some((x as usize, y as usize))
+        } else {
+            None
+        }
     }
 
     fn seats_between(&self, &(x, y): &Self::Node, _: &(), &i: &Self::I) -> Self::SBIter {

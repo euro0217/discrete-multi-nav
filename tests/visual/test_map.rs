@@ -24,15 +24,15 @@ impl TestMap {
 }
 
 impl Map<u32> for TestMap {
-    type C = u32;
+    type Cost = u32;
     type I = usize;
-    type SI = usize;
+    type SeatIndex = usize;
     type Seat = TestNode;
     type Node = VecDeque<usize>;
 
-    type SIter = vec_deque::IntoIter<Self::SI>;
-    type SCIter = IntoIter<(Self::I, Self::Node, Self::C)>;
-    type SBIter = IntoIter<(Self::SI, Self::C)>;
+    type SIter = vec_deque::IntoIter<Self::SeatIndex>;
+    type SCIter = IntoIter<(Self::I, Self::Node, Self::Cost)>;
+    type SBIter = IntoIter<(Self::SeatIndex, Self::Cost)>;
 
     fn seats(&self, idxs: &Self::Node, _: &()) -> Self::SIter {
         idxs.clone().into_iter()
@@ -53,12 +53,12 @@ impl Map<u32> for TestMap {
             .into_iter()
     }
 
-    fn successor(&self, idxs: &Self::Node, _: &(), &j: &Self::I) -> Self::Node {
-        let (j, _) = self.nodes[idxs[0]].nexts()[j];
+    fn successor(&self, idxs: &Self::Node, _: &(), &j: &Self::I) -> Option<Self::Node> {
+        let &(j, _) = self.nodes[idxs[0]].nexts().get(j)?;
         let mut js = idxs.clone();
         js.push_front(j);
         js.pop_back();
-        js
+        Some(js)
     }
 
     fn seats_between(&self, _: &Self::Node, _: &(), &_: &Self::I) -> Self::SBIter {

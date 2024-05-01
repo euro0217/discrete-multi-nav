@@ -2,22 +2,22 @@ use std::{collections::{BTreeMap, BinaryHeap, HashMap, VecDeque}, hash::Hash, ma
 
 use num_traits::One;
 
-use crate::{agent_data::{AgentData, AgentState}, duration::Duration, index::index::Idx, map::{self, Map}, pathfind::{common::MultipleEnds, dijkstra::dijkstra_for_next_reservation}, seat::{AgentIdxType, Seat}};
+use crate::{agent_data::{AgentData, AgentState}, duration::Duration, index::index::Idx, map::{Map, Movement}, pathfind::{common::MultipleEnds, dijkstra::dijkstra_for_next_reservation}, seat::{AgentIdxType, Seat}};
 
 
 pub struct Simulator<M: Map<U, T>, U: AgentIdxType + Ord, T = ()> 
 {
-    time: M::C,
+    time: M::Cost,
     map: M,
-    durations: BinaryHeap<Duration<M::C, M::SI, T, U>>,
-    agents: BTreeMap<Idx<T, U>, AgentData<M::Node, M::C, T>>,
+    durations: BinaryHeap<Duration<M::Cost, M::SeatIndex, T, U>>,
+    agents: BTreeMap<Idx<T, U>, AgentData<M::Node, M::Cost, T>>,
     queue: VecDeque<Idx<T, U>>,
-    max_reservation_time: M::C,
+    max_reservation_time: M::Cost,
 }
 
-impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Hash
+impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SeatIndex: Hash
 {
-    pub fn new(init_time: M::C, map: M, max_reservation_time: M::C) -> Self {
+    pub fn new(init_time: M::Cost, map: M, max_reservation_time: M::Cost) -> Self {
         Self {
             time: init_time,
             map,
@@ -30,15 +30,15 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
 
     pub fn map(&self) -> &M { &self.map }
 
-    pub fn agents(&self) -> &BTreeMap<Idx<T, U>, AgentData<M::Node, M::C, T>> { &self.agents }
-    pub fn agent(&self, idx: Idx<T, U>) -> Option<&AgentData<M::Node, M::C, T>> { self.agents.get(&idx) }
+    pub fn agents(&self) -> &BTreeMap<Idx<T, U>, AgentData<M::Node, M::Cost, T>> { &self.agents }
+    pub fn agent(&self, idx: Idx<T, U>) -> Option<&AgentData<M::Node, M::Cost, T>> { self.agents.get(&idx) }
 
-    pub fn agent_destination_mut(&mut self, idx: Idx<T, U>) -> Option<&mut VecDeque<MultipleEnds<<M as Map<U, T>>::Node, <M as Map<U, T>>::C>>> {
+    pub fn agent_destination_mut(&mut self, idx: Idx<T, U>) -> Option<&mut VecDeque<MultipleEnds<<M as Map<U, T>>::Node, <M as Map<U, T>>::Cost>>> {
         self.agents.get_mut(&idx)
             .and_then(|a| Some(a.destinations_mut()))
     }
 
-    pub fn movement_of(&self, idx: Idx<T, U>, index: M::I) -> Option<map::Successor<M, U, T>> {
+    pub fn movement_of(&self, idx: Idx<T, U>, index: M::I) -> Option<Movement<M, U, T>> {
         let Some(a) = self.agent(idx) else { return None };
 
         let c = if let AgentState::Moving { nexts } = a.state() {
@@ -46,16 +46,16 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         } else {
             a.current()
         };
-        Some(self.map.suc(c, a.kind(), &index))
+        self.map.movement(c, a.kind(), &index)
     }
 
-    pub fn is_empty_for(&self, idx: Idx<T, U>, s: &map::Successor<M, U, T>) -> bool {
+    pub fn is_empty_for(&self, idx: Idx<T, U>, s: &Movement<M, U, T>) -> bool {
         s.seats()
             .iter()
             .all(|(s, _)| self.map[s.clone()].is_empty_for(idx))
     }
 
-    pub fn add(&mut self, agent: T, node: M::Node, destination: VecDeque<MultipleEnds<M::Node, M::C>>) -> Idx<T, U> {
+    pub fn add(&mut self, agent: T, node: M::Node, destination: VecDeque<MultipleEnds<M::Node, M::Cost>>) -> Idx<T, U> {
         // node のバリデーション
         let idx = self.new_idx();
         self.agents.insert(idx, AgentData::new(agent, node, destination));
@@ -142,7 +142,7 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         self.queue.extend(idxs_fail);
         self.queue.extend(idxs_suc);
         
-        self.time = self.time + M::C::one();
+        self.time = self.time + M::Cost::one();
     }
 
     fn set_nexts(&mut self, idx: Idx<T, U>) -> bool {
@@ -158,7 +158,7 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
             a.current().clone(),
             destinations,
             |n| Successor::new(n.clone(), &self.map, a.kind()),
-            |s: &M::SI| self.map[s.clone()].is_empty_for(idx),
+            |s: &M::SeatIndex| self.map[s.clone()].is_empty_for(idx),
             self.max_reservation_time,
         );
 
@@ -173,7 +173,7 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         let mut seats = HashMap::new();
         let mut c0 = self.time;
         for s in self.map.seats(a.current(), a.kind()) {
-            Self::add_seats(&mut seats, s, if len > 0 { Some(c0 + M::C::one()) } else { None });
+            Self::add_seats(&mut seats, s, if len > 0 { Some(c0 + M::Cost::one()) } else { None });
         }
 
         let mut n0 = a.current().clone();
@@ -185,7 +185,7 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
             }
             if j < len - 1 {
                 for s in self.map.seats(&n, a.kind()) {
-                    Self::add_seats(&mut seats, s, Some(self.time + M::C::one() + c));
+                    Self::add_seats(&mut seats, s, Some(self.time + M::Cost::one() + c));
                 }
             } else {
                 for s in self.map.seats(&n, a.kind()) {
@@ -204,7 +204,7 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SI: Has
         true
     }
 
-    fn add_seats(seats: &mut HashMap<M::SI, Option<M::C>>, s: M::SI, t: Option<M::C>) {
+    fn add_seats(seats: &mut HashMap<M::SeatIndex, Option<M::Cost>>, s: M::SeatIndex, t: Option<M::Cost>) {
         if let Some(&d0) = seats.get(&s) {
             let a = match (d0, t) {
                 (None, Some(_)) => true,
@@ -233,7 +233,7 @@ impl<'a, M: Map<U, T>, U: AgentIdxType, T> Successor<'a, M, U, T> {
 }
 
 impl<'a, M: Map<U, T>, U: AgentIdxType, T> Iterator for Successor<'a, M, U, T> {
-    type Item = (M::Node, M::C, SuccessorSeats<M, U, T>, M::I);
+    type Item = (M::Node, M::Cost, SuccessorSeats<M, U, T>, M::I);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
@@ -249,29 +249,29 @@ impl<'a, M: Map<U, T>, U: AgentIdxType, T> Iterator for Successor<'a, M, U, T> {
 
 struct SuccessorSeats <M: Map<U, T>, U: AgentIdxType, T = ()> {
     s: M::SBIter,
-    t: M::SIter,
+    t: Option<M::SIter>,
 }
 
 impl<M: Map<U, T>, U: AgentIdxType, T> SuccessorSeats<M, U, T> {
     fn new<'a>(map: &'a M, node: &'a M::Node, kind: &'a T, index: &'a M::I) -> Self {
-
-        let s: M::SBIter = map
-            .seats_between(node, kind, index);
-
-        let t: M::SIter = map
-            .seats(&map.successor(node, kind, index), kind);
-
+        let s = map.seats_between(node, kind, index);
+        let t = map
+            .successor(node, kind, index)
+            .and_then(|ss| Some(map.seats(&ss, kind)));
         Self { s, t }
     }
 }
 
 impl<M: Map<U, T>, U: AgentIdxType, T> Iterator for SuccessorSeats<M, U, T> {
-    type Item = M::SI;
+    type Item = M::SeatIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((s, _)) = self.s.next() {
             return Some(s)
         }
-        self.t.next()
+        if let Some(t) = &mut self.t {
+            return t.next()
+        }
+        return None
     }
 }
