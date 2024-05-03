@@ -1,7 +1,8 @@
-use std::{collections::{HashMap, HashSet, VecDeque}, fs::File, path::Path};
+use std::{collections::{HashMap, HashSet, VecDeque}, fs::File, io::Write, path::Path, time::Instant};
 
 use discrete_multi_nav::{agent_data::AgentState, index::index::Idx, pathfind::common::MultipleEnds, simulator::Simulator};
 use map::TestMap;
+use rand::{thread_rng, Rng};
 use serde::Serialize;
 
 extern crate discrete_multi_nav;
@@ -312,4 +313,122 @@ fn test5() {
     }
 
     output_file(&"test5.json".to_string(), &output);
+}
+
+
+fn performance_test_data(map_size: usize, n_agents: usize, n_destinations: usize) -> (Simulator<TestMap, u32>, Vec<Idx<(), u32>>) {
+    let mut s = Simulator::new(0, TestMap::new(map_size, map_size), 5);
+
+    let mut rng = thread_rng();
+    
+    let idxs = (0..n_agents)
+        .map(|_| {
+            let (x, y) = (rng.gen_range(0..map_size), rng.gen_range(0..map_size));
+            let dests = (0..n_destinations)
+                .map(|_| {
+                    let (x, y) = (rng.gen_range(0..map_size), rng.gen_range(0..map_size));
+                    MultipleEnds::new_as_all_zero(vec![(x, y)])
+                });
+            s.add((), (x, y), VecDeque::from_iter(dests))
+        })
+        .collect::<Vec<_>>();
+
+    (s, idxs)
+}
+
+#[test]
+fn performance_test_visual() {
+    let n_step = 1000;
+
+    let (mut s, idxs) = performance_test_data(30, 5, 3);
+
+    let mut output = vec![];
+    output.push(output_data(&s, &idxs, 0));
+
+    let mut n_stops = idxs.iter().map(|&i| (i, 0)).collect::<HashMap<_, _>>();
+
+    for t in 1..=n_step {
+        s.step();
+        output.push(output_data(&s, &idxs, t));
+
+        for (idx, a) in s.agents() {
+            let n = n_stops.get_mut(idx).unwrap();
+            match a.state() {
+                AgentState::Moving { nexts: _ } => { *n = 0 },
+                _ => { *n += 1 }
+            }
+        }
+        if n_stops.values().all(|&n| n >= 2) {
+            println!("finished at t = {}", t);
+            if s.agents().values().all(|a| a.all_destinations().is_empty()) {
+                println!("all agents completed their movements.");
+            } else {
+                println!("some agents may finished with deadlock.");
+            }
+            break;
+        }
+    }
+
+    output_file(&"visual_test.json".to_string(), &output);
+}
+
+#[test]
+fn performance_test() {
+
+    let n_step = 100;
+
+    let map_sizes = [50, 100, 200];
+    let n_agents = [5, 10, 20];
+
+    let n_try = 5;
+
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/visual2/viewer/outputs");
+    let mut f = File::create(path.join("visual.csv")).unwrap();
+    f.write_all(b"map_size,n_agent,total_time(msec),steps,time_per_step(msec)\n").unwrap();
+
+    for map_size in map_sizes {
+        for n_agent in n_agents {
+
+            for _ in 0..n_try {
+                let (mut s, idxs) = performance_test_data(map_size, n_agent, 3);
+
+                let mut n_stops = idxs.iter().map(|&i| (i, 0)).collect::<HashMap<_, _>>();
+
+                let mut total_time = 0;
+                let mut n = 0;
+                for t in 1..=n_step {
+
+                    let t0 = Instant::now();
+                    s.step();
+                    total_time += t0.elapsed().as_micros();
+            
+                    for (idx, a) in s.agents() {
+                        let n = n_stops.get_mut(idx).unwrap();
+                        match a.state() {
+                            AgentState::Moving { nexts: _ } => { *n = 0 },
+                            _ => { *n += 1 }
+                        }
+                    }
+                    if n_stops.values().all(|&n| n >= 2) {
+                        println!("finished at t = {}", t);
+                        if s.agents().values().all(|a| a.all_destinations().is_empty()) {
+                            println!("all agents completed their movements.");
+                        } else {
+                            println!("some agents may finished with deadlock.");
+                        }
+                        n = t;
+                        break;
+                    }
+                }
+                if n == 0 {
+                    n = n_step;
+                }
+
+                total_time /= 1000; // milli
+
+                f.write_all(format!("{},{},{},{},{}\n", map_size, n_agent, total_time, n, total_time as f64 / n as f64).as_bytes()).unwrap();
+            }
+        }
+    }
 }
