@@ -2,7 +2,7 @@ use std::{collections::{BTreeMap, BinaryHeap, HashMap, VecDeque}, hash::Hash, ma
 
 use num_traits::One;
 
-use crate::{agent_data::{AgentData, AgentState}, duration::Duration, index::index::Idx, map::{Map, Movement}, pathfind::{aster::astar_for_next_reservation, common::MultipleEnds, dijkstra::dijkstra_for_next_reservation}, seat::{AgentIdxType, Seat}};
+use crate::{agent_data::{AgentData, AgentState}, duration::Duration, index::index::Idx, map::{Map, Movement}, pathfind::{astar::astar_for_next_reservation, common::MultipleEnds, dijkstra::dijkstra_for_next_reservation}, seat::{AgentIdxType, Seat}};
 
 use crate::map::Heuristic;
 pub struct Simulator<M: Map<U, T>, U: AgentIdxType + Ord, T = ()> 
