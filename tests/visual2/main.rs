@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet, VecDeque}, fs::File, io::Write, path::Path, time::Instant};
 
-use discrete_multi_nav::{agent_data::AgentState, index::index::Idx, pathfind::common::MultipleEnds, simulator::Simulator};
+use discrete_multi_nav::{agent_data::AgentState, index::index::Idx, map::Movement, pathfind::common::MultipleEnds, simulator::Simulator};
 use map::TestMap;
 use rand::{thread_rng, Rng};
 use serde::Serialize;
@@ -200,77 +200,11 @@ fn test4() {
     output.push(output_data(&s, &idxs, 0));
 
     for t in 1..=148 {
-        if t == 60 {
-            suc_test(&s, &idxs);
-        }
         s.step();
         output.push(output_data(&s, &idxs, t));
     }
 
     output_file(&"test4.json".to_string(), &output);
-}
-
-
-fn suc_test(sim: &Simulator<TestMap, u32>, idxs: &Vec<Idx<(), u32>>) {
-    let m = sim.movement_of(idxs[0], 3).unwrap();
-    assert_eq!(m.node(), &(1, 4));
-    let s = m.seats()
-        .into_iter()
-        .copied()
-        .collect::<HashSet<_>>();
-    let expected = HashSet::from([
-        ((3, 3), Some(2)),
-        ((2, 3), Some(3)),
-        ((2, 4), Some(4)),
-        ((1, 4), None),
-    ]);
-    assert_eq!(s, expected);
-    assert!(sim.is_empty_for(idxs[0], &m));
-
-    let m = sim.movement_of(idxs[0], 7).unwrap();
-    assert_eq!(m.node(), &(5, 2));
-    let s = m.seats()
-        .into_iter()
-        .copied()
-        .collect::<HashSet<_>>();
-    let expected = HashSet::from([
-        ((3, 3), Some(2)),
-        ((4, 3), Some(3)),
-        ((4, 2), Some(4)),
-        ((5, 2), None),
-    ]);
-    assert_eq!(s, expected);
-    assert!(!sim.is_empty_for(idxs[0], &m));
-
-    let m = sim.movement_of(idxs[1], 1).unwrap();
-    assert_eq!(m.node(), &(5, 3));
-    let s = m.seats()
-        .into_iter()
-        .copied()
-        .collect::<HashSet<_>>();
-    let expected = HashSet::from([
-        ((4, 1), Some(2)),
-        ((4, 2), Some(3)),
-        ((5, 2), Some(4)),
-        ((5, 3), None),
-    ]);
-    assert_eq!(s, expected);
-    assert!(!sim.is_empty_for(idxs[1], &m));
-
-    let m = sim.movement_of(idxs[1], 4).unwrap();
-    assert_eq!(m.node(), &(2, 0));
-    let s = m.seats()
-        .into_iter()
-        .copied()
-        .collect::<HashSet<_>>();
-    let expected = HashSet::from([
-        ((4, 1), Some(2)),
-        ((3, 1), Some(3)),
-        ((3, 0), Some(4)),
-        ((2, 0), None),
-    ]);
-    assert_eq!(s, expected);
-    assert!(sim.is_empty_for(idxs[1], &m));
 }
 
 #[test]
@@ -313,6 +247,51 @@ fn test5() {
     }
 
     output_file(&"test5.json".to_string(), &output);
+}
+
+#[test]
+fn movement_test() {
+    let mut s = Simulator::new(0, TestMap::new(7, 4), 5);
+
+    let i0 = s.add((), (6, 0), VecDeque::from([MultipleEnds::new_as_all_zero(vec![(0, 3)])]));
+
+    fn assert_seat(m: &Movement<TestMap, u32, ()>, expected: Vec<((usize, usize), Option<u32>)>) {
+        let actual = m.seats().into_iter().copied().collect::<HashSet<_>>();
+        assert_eq!(HashSet::from_iter(expected.into_iter()), actual);
+    }
+
+    let a = s.agent(i0).unwrap();
+    assert_eq!(*a.current(), (6, 0));
+    assert_seat(&s.movement_of(i0, 2).unwrap(), vec![((6, 0), Some(2)), ((6, 1), Some(3)), ((5, 1), Some(4)), ((5, 2), None)]);
+    assert!(s.movement_of(i0, 1).is_none());
+
+    s.step();
+    
+    for _ in 0..4 {
+        assert_eq!(*s.agent(i0).unwrap().current(), (6, 0));
+        assert_seat(&s.movement_of(i0, 1).unwrap(), vec![((4, 1), Some(2)), ((4, 2), Some(3)), ((5, 2), Some(4)), ((5, 3), None)]);
+        assert!(s.movement_of(i0, 6).is_none());
+
+        s.step();
+    }
+
+    for _ in 0..4 {
+        assert_eq!(*s.agent(i0).unwrap().current(), (4, 1));
+        assert_seat(&s.movement_of(i0, 5).unwrap(), vec![((2, 2), Some(2)), ((2, 1), Some(3)), ((1, 1), Some(4)), ((1, 0), None)]);
+        assert!(s.movement_of(i0, 8).is_none());
+
+        s.step();
+    }
+    
+    for _ in 0..4 {
+        assert_eq!(*s.agent(i0).unwrap().current(), (2, 2));
+        assert_seat(&s.movement_of(i0, 7).unwrap(), vec![((0, 3), Some(2)), ((1, 3), Some(3)), ((1, 2), Some(4)), ((2, 2), None)]);
+        assert!(s.movement_of(Idx::new(99999), 8).is_none());
+
+        s.step();
+    }
+    assert_eq!(*s.agent(i0).unwrap().current(), (0, 3));
+    assert_seat(&s.movement_of(i0, 6).unwrap(), vec![((0, 3), Some(2)), ((0, 2), Some(3)), ((1, 2), Some(4)), ((1, 1), None)]);
 }
 
 

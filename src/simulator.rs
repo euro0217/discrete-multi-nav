@@ -2,9 +2,9 @@ use std::{collections::{BTreeMap, BinaryHeap, HashMap, VecDeque}, hash::Hash, ma
 
 use num_traits::One;
 
-use crate::{agent_data::{AgentData, AgentState}, duration::Duration, index::index::Idx, map::{Map, Movement}, pathfind::{common::MultipleEnds, dijkstra::dijkstra_for_next_reservation}, seat::{AgentIdxType, Seat}};
+use crate::{agent_data::{AgentData, AgentState}, duration::Duration, index::index::Idx, map::{Map, Movement}, pathfind::{aster::astar_for_next_reservation, common::MultipleEnds, dijkstra::dijkstra_for_next_reservation}, seat::{AgentIdxType, Seat}};
 
-
+use crate::map::Heuristic;
 pub struct Simulator<M: Map<U, T>, U: AgentIdxType + Ord, T = ()> 
 {
     time: M::Cost,
@@ -154,13 +154,24 @@ impl<M: Map<U, T>, U: AgentIdxType + Ord, T> Simulator<M, U, T> where M::SeatInd
             return false;
         };
 
-        let path = dijkstra_for_next_reservation(
-            a.current().clone(),
-            destinations,
-            |n| Successor::new(n.clone(), &self.map, a.kind()),
-            |s: &M::SeatIndex| self.map[s.clone()].is_empty_for(idx),
-            self.max_reservation_time,
-        );
+        let path = if let Some(heuristic) = self.map.heuristic(destinations) {
+            astar_for_next_reservation(
+                a.current().clone(),
+                destinations,
+                |n| Successor::new(n.clone(), &self.map, a.kind()),
+                |s: &M::SeatIndex| self.map[s.clone()].is_empty_for(idx),
+                self.max_reservation_time,
+                |n| heuristic.heuristic(n),
+            )
+        } else {
+            dijkstra_for_next_reservation(
+                a.current().clone(),
+                destinations,
+                |n| Successor::new(n.clone(), &self.map, a.kind()),
+                |s: &M::SeatIndex| self.map[s.clone()].is_empty_for(idx),
+                self.max_reservation_time,
+            )
+        };
 
         let Some(path) = path else {
             return false

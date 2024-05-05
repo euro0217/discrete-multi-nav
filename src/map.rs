@@ -2,7 +2,7 @@ use std::{hash::Hash, ops::IndexMut};
 
 use num_traits::One;
 
-use crate::{pathfind::common::{Cost, Node, Seat as TSeat}, seat::{AgentIdxType, Seat}};
+use crate::{pathfind::common::{Cost, MultipleEnds, Node, Seat as TSeat}, seat::{AgentIdxType, Seat}};
 
 
 pub trait Map<U: AgentIdxType, T = ()>: IndexMut<Self::SeatIndex, Output = Self::Seat> {
@@ -14,11 +14,14 @@ pub trait Map<U: AgentIdxType, T = ()>: IndexMut<Self::SeatIndex, Output = Self:
     type SIter: Iterator<Item = Self::SeatIndex>;
     type SCIter: Iterator<Item = (Self::I, Self::Node, Self::Cost)>;
     type SBIter: Iterator<Item = (Self::SeatIndex, Self::Cost)>;
+    type FH: Heuristic<Self::Node, Self::Cost>;
 
     fn seats(&self, n: &Self::Node, t: &T) -> Self::SIter;
     fn successors(&self, n: &Self::Node, t: &T) -> Self::SCIter;
     fn successor(&self, n: &Self::Node, t: &T, i: &Self::I) -> Option<Self::Node>;
     fn seats_between(&self, n: &Self::Node, t: &T, i: &Self::I) -> Self::SBIter;
+
+    fn heuristic(&self, _dest: &MultipleEnds<Self::Node, Self::Cost>) -> Option<Self::FH> { None }
 
     fn movement(&self, n: &Self::Node, t: &T, i: &Self::I) -> Option<Movement<Self, U, T>> where Self: Sized {
         let node = self.successor(n, t, i)?;
@@ -28,6 +31,16 @@ pub trait Map<U: AgentIdxType, T = ()>: IndexMut<Self::SeatIndex, Output = Self:
             .map(|s| (s, None));
         Some(Movement { node, seats: seats_between.chain(seats).collect::<Vec<_>>() })
     }
+}
+
+pub trait Heuristic<N: Node, C: Cost> {
+    fn heuristic(&self, n: &N) -> C;
+}
+
+pub struct DummyHeuristic {}
+
+impl<N: Node, C: Cost> Heuristic<N, C> for DummyHeuristic {
+    fn heuristic(&self, _: &N) -> C { C::zero() }
 }
 
 #[derive(Debug, PartialEq, Eq)]

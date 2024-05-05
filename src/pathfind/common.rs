@@ -123,3 +123,37 @@ impl<C: Cost> Add for RCost<C> {
         }
     }
 }
+
+pub(crate) fn collect_path<N: Node, C: Cost, T: Clone>(path: Vec<NodeCost<NodeDest<N>, C, T>>) -> Path<N, C, T> {
+    Path::new(path[1..]
+        .into_iter()
+        .filter_map(|node|
+            match node.node() {
+                NodeDest::Node(n) => Some((n.clone(), node.cost(), node.attr().clone())),
+                NodeDest::Dest => None,
+            }
+        )
+        .collect::<Vec<(N, C, T)>>()
+    )
+}
+
+pub(crate) fn collect_path_for_reservation<N: Node, C: Cost, T: Clone>(path: Path<N, RCost<C>, T>) -> Path<N, C, T> {
+    Path::new(
+        path.into_iter()
+            .take_while(|(_, c, _)| {
+                if let RCost::Cost { cost: _, r: _, blocked } = c {
+                    !blocked
+                } else {
+                    false
+                }
+            })
+            .map(|(n, c, t)| {
+                if let RCost::Cost { cost, r, blocked: _ } = c {
+                    (n, cost + r, t)
+                } else {
+                    panic!()
+                }
+            })
+            .collect::<Vec<(N, C, T)>>()
+    )
+}

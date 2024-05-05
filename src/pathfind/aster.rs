@@ -1,15 +1,16 @@
-use pathfinding::directed::dijkstra::dijkstra;
+use pathfinding::directed::astar::astar;
 
 use crate::pathfind::common::RCost;
 
 use super::common::{collect_path, collect_path_for_reservation, Cost, MultipleEnds, Node, NodeCost, NodeDest, Path, Seat};
 
-pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS, T>(
+pub fn astar_for_next_reservation<N, C, S, FN, IN, IS, FS, FH, T>(
     start: N,
     ends: &MultipleEnds<N, C>,
     mut successors: FN,
     seats_reservation: FS,
-    max_reservation_cost: C
+    max_reservation_cost: C,
+    heuristic: FH,
 )
 -> Option<Path<N, C, T>> where
     N: Node ,
@@ -19,6 +20,7 @@ pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS, T>(
     IN: IntoIterator<Item = (N, C, IS, T)>,
     IS: Iterator<Item = S>,
     FS: Fn(&S) -> bool,
+    FH: Fn(&N) -> C,
     T: Default + Clone,
 {
     if ends.is_empty() { return None }
@@ -35,15 +37,22 @@ pub fn dijkstra_for_next_reservation<N, C, S, FN, IN, IS, FS, T>(
             )
     };
 
-    dijkstra_for_multiple_ends(&start, ends, successors, |c| RCost::Add { dc: c, max: max_reservation_cost })
+    astar_for_multiple_ends(
+        &start,
+        ends,
+        successors,
+        |c| RCost::Add { dc: c, max: max_reservation_cost },
+        |n| RCost::Add { dc: heuristic(n), max: max_reservation_cost }
+    )
         .and_then(|path| Some(collect_path_for_reservation(path)))
 }
 
-pub fn dijkstra_for_multiple_ends<N, C, MC, FN, IN, T, FC>(
+pub fn astar_for_multiple_ends<N, C, MC, FN, IN, T, FC, FH>(
     start: &N,
     ends: &MultipleEnds<N, MC>,
     mut successors: FN,
     converter: FC,
+    mut heuristic: FH,
 )
 -> Option<Path<N, C, T>> where
     N: Node,
@@ -52,6 +61,7 @@ pub fn dijkstra_for_multiple_ends<N, C, MC, FN, IN, T, FC>(
     FN: FnMut(&N) -> IN,
     IN: IntoIterator<Item = (N, C, T)>,
     FC: Fn(MC) -> C,
+    FH: FnMut(&N) -> C,
     T: Default + Clone,
 {
     if ends.is_empty() { return None }
@@ -71,7 +81,15 @@ pub fn dijkstra_for_multiple_ends<N, C, MC, FN, IN, T, FC>(
         }
     };
 
-    dijkstra(&NodeCost::new(NodeDest::Node(start.clone()), C::zero(), T::default()), successors, |n| n.node() == &NodeDest::Dest)
+    let heuristic = |n: &NodeCost<NodeDest<N>, C, T>| {
+        let node = n.node();
+        match node {
+            NodeDest::Node(n) => heuristic(n),
+            NodeDest::Dest => C::zero(),
+        }
+    };
+
+    astar(&NodeCost::new(NodeDest::Node(start.clone()), C::zero(), T::default()), successors, heuristic, |n| n.node() == &NodeDest::Dest)
         .and_then(|(path, _)| Some(collect_path(path)))
 }
 
@@ -79,16 +97,16 @@ pub fn dijkstra_for_multiple_ends<N, C, MC, FN, IN, T, FC>(
 mod tests {
     use std::{collections::HashMap, time::Instant};
 
-    use crate::pathfind::{common::MultipleEnds, dijkstra::dijkstra_for_next_reservation};
+    use crate::pathfind::common::MultipleEnds;
 
-    use super::dijkstra_for_multiple_ends;
+    use super::{astar_for_multiple_ends, astar_for_next_reservation};
 
     #[test]
     fn multiple_ends_test0() {
         let ends = MultipleEnds::new_as_all_zero(vec![]);
         let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1, ()));
         
-        assert!(dijkstra_for_multiple_ends(&(2, 3), &ends, successors, |c| c).is_none());
+        assert!(astar_for_multiple_ends(&(2, 3), &ends, successors, |c| c, |_| 0).is_none());
     }
 
     #[test]
@@ -96,7 +114,7 @@ mod tests {
         let ends = MultipleEnds::new_as_all_zero(vec![(5, 1)]);
         let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1, ()));
         
-        let path = dijkstra_for_multiple_ends(&(2, 3), &ends, successors, |c| c).unwrap();
+        let path = astar_for_multiple_ends(&(2, 3), &ends, successors, |c| c, |_| 0).unwrap();
 
         assert_eq!(path.total_cost(), 5);
         assert_eq!(path.len(), 5);
@@ -109,7 +127,7 @@ mod tests {
         let ends = MultipleEnds::new(HashMap::from([((6, -1), 0), ((5, 1), 1000)]));
         let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1, ()));
         
-        let path = dijkstra_for_multiple_ends(&(2i32, 3i32), &ends, successors, |c| c).unwrap();
+        let path = astar_for_multiple_ends(&(2i32, 3i32), &ends, successors, |c| c, |_| 0).unwrap();
 
         assert_eq!(path.total_cost(), 8);
         assert_eq!(path.len(), 8);
@@ -123,7 +141,7 @@ mod tests {
         let ends = MultipleEnds::new(HashMap::from([((6, -1), 0), ((-1, 7), 0), ((5, 1), 1000)]));
         let successors = |&(x, y): &_| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)].into_iter().map(|p| (p, 1, ()));
         
-        let path = dijkstra_for_multiple_ends(&(2, 3), &ends, successors, |c| c).unwrap();
+        let path = astar_for_multiple_ends(&(2, 3), &ends, successors, |c| c, |_| 0).unwrap();
 
         assert_eq!(path.total_cost(), 7);
         assert_eq!(path.len(), 7);
@@ -137,7 +155,7 @@ mod tests {
             .into_iter()
             .filter_map(|(x, y): (i32, i32)| if x.abs() < 10 && y.abs() < 10 { Some(((x, y), 1, ())) } else { None });
         
-        assert!(dijkstra_for_multiple_ends(&(2, 3), &ends, successors, |c| c).is_none());
+        assert!(astar_for_multiple_ends(&(2, 3), &ends, successors, |c| c, |_| 0).is_none());
     }
 
     #[test]
@@ -147,7 +165,7 @@ mod tests {
             .into_iter()
             .filter_map(|(x, y): (i32, i32)| if x.abs() < 10 && y.abs() < 10 { Some(((x, y), 1, ())) } else { None });
         
-        let path = dijkstra_for_multiple_ends(&(2, 3), &ends, successors, |c| c).unwrap();
+        let path = astar_for_multiple_ends(&(2, 3), &ends, successors, |c| c, |_| 0).unwrap();
 
         assert_eq!(path.total_cost(), 8);
         assert_eq!(path.len(), 8);
@@ -161,14 +179,14 @@ mod tests {
             .filter_map(|(x, y): (i32, i32)| if x.abs() < 10 && y.abs() < 10 { Some(((x, y), 1, ())) } else { None });
 
         let ends = MultipleEnds::new(HashMap::from([((6, 3), 1), ((2, 7), 0)])); // 4 6
-        let path = dijkstra_for_multiple_ends(&(3, 2), &ends, successors, |c| c).unwrap();
+        let path = astar_for_multiple_ends(&(3, 2), &ends, successors, |c| c, |_| 0).unwrap();
 
         assert_eq!(path.total_cost(), 4);
         assert_eq!(path.len(), 4);
         assert_eq!(path[path.len() - 1], ((6, 3), 4, ()));
 
         let ends = MultipleEnds::new(HashMap::from([((6, 3), 3), ((2, 7), 0)])); // 4 6
-        let path = dijkstra_for_multiple_ends(&(3, 2), &ends, successors, |c| c).unwrap();
+        let path = astar_for_multiple_ends(&(3, 2), &ends, successors, |c| c, |_| 0).unwrap();
 
         assert_eq!(path.total_cost(), 6);
         assert_eq!(path.len(), 6);
@@ -223,7 +241,7 @@ mod tests {
 
         for (start, ends, len, expected) in cases {
             let ends = MultipleEnds::new_as_all_zero(vec![ends]);
-            let actual = dijkstra_for_next_reservation(start, &ends, successors, seats_reservation, len);
+            let actual = astar_for_next_reservation(start, &ends, successors, seats_reservation, len, |_| 0);
 
             match (expected, actual) {
                 (None, None) => {},
@@ -253,16 +271,47 @@ mod tests {
             let seats_reservation = |&(x, y): &_| !((x == 4 * t && y < 6 * t) || (x == 7 * t && y > 4 * t));
             let max_reservation_cost = 3 * n;
             let ends = MultipleEnds::new_as_all_zero(vec![(n, n)]);
+            let heuristic = |&(x, y): &(i32, i32)| (x.abs_diff(n) + y.abs_diff(n)) as i32;
 
             let mut t = 0;
             for _ in 0..n_try {
                 let t0 = Instant::now();
-                let path = dijkstra_for_next_reservation((0, 0), &ends, successors, seats_reservation, max_reservation_cost).unwrap();
+                let path = astar_for_next_reservation((0, 0), &ends, successors, seats_reservation, max_reservation_cost, heuristic).unwrap();
                 t += t0.elapsed().as_micros();
                 assert_eq!(path.len(), (12 * n / 5) as usize);
             }
 
-            // Please compare to aster::performance_test1 and aster::performance_test1_no_heuristic
+            // Please compare to dijkstra::performance_test1 and aster::performance_test1_no_heuristic
+            println!("n = {}, {} milliseconds per one try as average", n, t / n_try / 1000);
+        }
+    }
+
+    #[test]
+    fn performance_test1_no_heuristic() {
+
+        let successors = |&(x, y): &(i32, i32)| vec![(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)]
+            .into_iter()
+            .map(|p| (p, 1, vec![p].into_iter(), ()));
+
+        let n_try = 2;
+
+        let heuristic = |&_: &(i32, i32)| 0;
+
+        for n in [10, 100, 1000] {
+            let t = n / 10;
+            let seats_reservation = |&(x, y): &_| !((x == 4 * t && y < 6 * t) || (x == 7 * t && y > 4 * t));
+            let max_reservation_cost = 3 * n;
+            let ends = MultipleEnds::new_as_all_zero(vec![(n, n)]);
+
+            let mut t = 0;
+            for _ in 0..n_try {
+                let t0 = Instant::now();
+                let path = astar_for_next_reservation((0, 0), &ends, successors, seats_reservation, max_reservation_cost, heuristic).unwrap();
+                t += t0.elapsed().as_micros();
+                assert_eq!(path.len(), (12 * n / 5) as usize);
+            }
+
+            // Please compare to dijkstra::performance_test1 and aster::performance_test1
             println!("n = {}, {} milliseconds per one try as average", n, t / n_try / 1000);
         }
     }

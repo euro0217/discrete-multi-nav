@@ -1,6 +1,6 @@
 use std::{collections::{vec_deque, VecDeque}, ops::{Index, IndexMut}, vec::IntoIter};
 
-use discrete_multi_nav::{index::index::Idx, map::Map, seat::Seat};
+use discrete_multi_nav::{index::index::Idx, map::{DummyHeuristic, Map}, seat::Seat};
 
 use crate::test_node::TestNode;
 
@@ -33,6 +33,8 @@ impl Map<u32> for TestMap {
     type SIter = vec_deque::IntoIter<Self::SeatIndex>;
     type SCIter = IntoIter<(Self::I, Self::Node, Self::Cost)>;
     type SBIter = IntoIter<(Self::SeatIndex, Self::Cost)>;
+
+    type FH = DummyHeuristic;
 
     fn seats(&self, idxs: &Self::Node, _: &()) -> Self::SIter {
         idxs.clone().into_iter()
